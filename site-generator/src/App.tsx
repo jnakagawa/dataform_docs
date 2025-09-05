@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Layers, BarChart3, Clock, AlertCircle } from 'lucide-react';
+import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
 import DependencyGraph from './components/DependencyGraph';
 import ModelList from './components/ModelList';
 import ModelDetails from './components/ModelDetails';
@@ -180,95 +181,23 @@ function App() {
         </div>
       </header>
 
-      <div className="flex-1 flex overflow-hidden">
-        {/* Left Sidebar */}
-        <div className="w-80 flex flex-col bg-white border-r border-gray-200">
-          <Search
-            models={manifest.models}
-            onSearchChange={handleSearchChange}
-            onTypeFilter={handleTypeFilter}
-            onTagFilter={handleTagFilter}
-            onClearFilters={handleClearFilters}
-            searchTerm={searchTerm}
-            filterType={filterType}
-            filterTag={filterTag}
-          />
-          
-          <div className="flex-1 overflow-hidden">
-            <ModelList
-              models={manifest.models}
-              selectedModel={selectedModel || undefined}
-              onModelSelect={handleModelSelect}
-              searchTerm={searchTerm}
-              filterType={filterType}
-              filterTag={filterTag}
-            />
-          </div>
-        </div>
-
-        {/* Main Content */}
-        <div className="flex-1 flex">
-          {/* Graph/List View */}
-          <div className="flex-1">
-            {currentView === 'graph' ? (
-              <div className="relative h-full">
-                <DependencyGraph
-                  models={manifest.models}
-                  onNodeClick={(model) => handleModelSelect(model.name)}
-                  selectedModel={selectedModel || undefined}
-                  isolateModel={isolatedModel || undefined}
-                />
-                {isolatedModel && (
-                  <div className="absolute top-4 left-4 bg-white rounded-lg shadow-md p-3 border border-gray-200">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium text-gray-700">
-                        Showing pipeline for: <span className="text-blue-600 font-semibold">{isolatedModel}</span>
-                      </span>
-                      <span className="text-xs text-gray-500 bg-gray-50 px-2 py-1 rounded">
-                        {(() => {
-                          // Calculate connected models count for display
-                          const getConnectedCount = (modelName: string, models: Record<string, any>) => {
-                            const connected = new Set<string>([modelName]);
-                            const visited = new Set<string>();
-                            
-                            const traverse = (name: string) => {
-                              if (visited.has(name) || !models[name]) return;
-                              visited.add(name);
-                              connected.add(name);
-                              
-                              // Add dependencies
-                              models[name].dependencies.forEach((dep: string) => {
-                                if (models[dep]) traverse(dep);
-                              });
-                              
-                              // Add dependents
-                              Object.values(models).forEach((model: any) => {
-                                if (model.dependencies.includes(name)) {
-                                  traverse(model.name);
-                                }
-                              });
-                            };
-                            
-                            traverse(modelName);
-                            return connected.size;
-                          };
-                          
-                          const connectedCount = getConnectedCount(isolatedModel, manifest.models);
-                          return `${connectedCount} of ${Object.keys(manifest.models).length}`;
-                        })()}
-                      </span>
-                      <button
-                        onClick={handleClearIsolation}
-                        className="px-3 py-1 text-xs bg-blue-600 text-white hover:bg-blue-700 rounded transition-colors font-medium"
-                      >
-                        Show All
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="h-full bg-white">
+      <div className="flex-1 overflow-hidden">
+        <PanelGroup direction="horizontal">
+          {/* Left Sidebar - Model List */}
+          <Panel defaultSize={25} minSize={15} maxSize={40}>
+            <div className="h-full flex flex-col bg-white border-r border-gray-200">
+              <Search
+                models={manifest.models}
+                onSearchChange={handleSearchChange}
+                onTypeFilter={handleTypeFilter}
+                onTagFilter={handleTagFilter}
+                onClearFilters={handleClearFilters}
+                searchTerm={searchTerm}
+                filterType={filterType}
+                filterTag={filterTag}
+              />
+              
+              <div className="flex-1 overflow-hidden">
                 <ModelList
                   models={manifest.models}
                   selectedModel={selectedModel || undefined}
@@ -278,21 +207,103 @@ function App() {
                   filterTag={filterTag}
                 />
               </div>
-            )}
-          </div>
+            </div>
+          </Panel>
+
+          <PanelResizeHandle className="w-2 bg-gray-100 hover:bg-gray-200 cursor-col-resize transition-colors" />
+
+          {/* Main Content - Graph/List View */}
+          <Panel defaultSize={selectedModelData ? 50 : 75} minSize={30}>
+            <div className="h-full">
+              {currentView === 'graph' ? (
+                <div className="relative h-full">
+                  <DependencyGraph
+                    models={manifest.models}
+                    onNodeClick={(model) => handleModelSelect(model.name)}
+                    selectedModel={selectedModel || undefined}
+                    isolateModel={isolatedModel || undefined}
+                  />
+                  {isolatedModel && (
+                    <div className="absolute top-4 left-4 bg-white rounded-lg shadow-md p-3 border border-gray-200">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium text-gray-700">
+                          Showing pipeline for: <span className="text-blue-600 font-semibold">{isolatedModel}</span>
+                        </span>
+                        <span className="text-xs text-gray-500 bg-gray-50 px-2 py-1 rounded">
+                          {(() => {
+                            // Calculate connected models count for display
+                            const getConnectedCount = (modelName: string, models: Record<string, any>) => {
+                              const connected = new Set<string>([modelName]);
+                              const visited = new Set<string>();
+                              
+                              const traverse = (name: string) => {
+                                if (visited.has(name) || !models[name]) return;
+                                visited.add(name);
+                                connected.add(name);
+                                
+                                // Add dependencies
+                                models[name].dependencies.forEach((dep: string) => {
+                                  if (models[dep]) traverse(dep);
+                                });
+                                
+                                // Add dependents
+                                Object.values(models).forEach((model: any) => {
+                                  if (model.dependencies.includes(name)) {
+                                    traverse(model.name);
+                                  }
+                                });
+                              };
+                              
+                              traverse(modelName);
+                              return connected.size;
+                            };
+                            
+                            const connectedCount = getConnectedCount(isolatedModel, manifest.models);
+                            return `${connectedCount} of ${Object.keys(manifest.models).length}`;
+                          })()}
+                        </span>
+                        <button
+                          onClick={handleClearIsolation}
+                          className="px-3 py-1 text-xs bg-blue-600 text-white hover:bg-blue-700 rounded transition-colors font-medium"
+                        >
+                          Show All
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="h-full bg-white">
+                  <ModelList
+                    models={manifest.models}
+                    selectedModel={selectedModel || undefined}
+                    onModelSelect={handleModelSelect}
+                    searchTerm={searchTerm}
+                    filterType={filterType}
+                    filterTag={filterTag}
+                  />
+                </div>
+              )}
+            </div>
+          </Panel>
 
           {/* Right Sidebar - Model Details */}
           {selectedModelData && (
-            <div className="w-[500px] bg-white border-l border-gray-200">
-              <ModelDetails
-                model={selectedModelData}
-                allModels={manifest.models}
-                catalog={catalog}
-                onModelSelect={handleModelSelect}
-              />
-            </div>
+            <>
+              <PanelResizeHandle className="w-2 bg-gray-100 hover:bg-gray-200 cursor-col-resize transition-colors" />
+              <Panel defaultSize={25} minSize={20} maxSize={50}>
+                <div className="h-full bg-white border-l border-gray-200">
+                  <ModelDetails
+                    model={selectedModelData}
+                    allModels={manifest.models}
+                    catalog={catalog}
+                    onModelSelect={handleModelSelect}
+                  />
+                </div>
+              </Panel>
+            </>
           )}
-        </div>
+        </PanelGroup>
       </div>
 
       {/* Empty State for Model Details */}
