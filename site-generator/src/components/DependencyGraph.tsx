@@ -384,6 +384,7 @@ function CustomControls() {
 
 export default function DependencyGraph({ models, onNodeClick, selectedModel, isolateModel }: DependencyGraphProps) {
   const isIsolated = !!isolateModel;
+  const [reactFlowInstance, setReactFlowInstance] = React.useState<any>(null);
   
   // Convert models to nodes and edges with optional isolation
   const { nodes: initialNodes, edges: initialEdges } = useMemo(() => {
@@ -461,6 +462,23 @@ export default function DependencyGraph({ models, onNodeClick, selectedModel, is
     );
   }, [selectedModel, setNodes]);
 
+  // Auto-zoom to fit isolated pipeline
+  React.useEffect(() => {
+    if (isolateModel && reactFlowInstance && nodes.length > 0) {
+      // Small delay to let nodes settle after layout
+      const timer = setTimeout(() => {
+        reactFlowInstance.fitView({
+          padding: 0.15,
+          duration: 800,
+          minZoom: 0.1,
+          maxZoom: 1.5,
+        });
+      }, 200);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [isolateModel, reactFlowInstance, nodes.length]);
+
   return (
     <div className="w-full h-full bg-gray-50 rounded-lg border border-gray-200 relative">
       <ReactFlow
@@ -470,6 +488,7 @@ export default function DependencyGraph({ models, onNodeClick, selectedModel, is
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
         nodeTypes={nodeTypes}
+        onInit={setReactFlowInstance}
         fitView
         fitViewOptions={{
           padding: 0.1,
