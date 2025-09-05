@@ -12,6 +12,17 @@ Generate beautiful, interactive documentation for your Dataform projects with de
 📱 **Resizable Panels** - Customize your workspace layout  
 🚀 **Fast & Static** - Generates self-contained HTML that can be hosted anywhere
 
+## Demo
+
+🌟 **[View Live Demo](https://jnakagawa.github.io/dataform-climbing-docs/)** - Interactive climbing database documentation
+
+The demo showcases a complete Dataform project with:
+- Complex dependency relationships between tables and views
+- Pipeline isolation to focus on specific models
+- Column schemas with types and descriptions  
+- Interactive dependency graph with auto-zoom
+- Real sample data from a climbing activity tracking system
+
 ## Requirements
 
 - **Node.js** 16 or higher
