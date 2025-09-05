@@ -83,14 +83,55 @@ async function generateCommand(options) {
     }
 }
 async function copySiteFiles(outputPath) {
-    const siteDistPath = path_1.default.join(__dirname, '../site');
-    console.log(chalk_1.default.gray(`   Looking for site files at: ${siteDistPath}`));
+    // First try to find pre-built site files
+    const distSitePath = path_1.default.join(__dirname, '../site');
+    const siteGeneratorPath = path_1.default.join(__dirname, '../../site-generator');
+    console.log(chalk_1.default.gray(`   Looking for site files at: ${distSitePath}`));
     try {
-        // Check if pre-built site exists
-        await fs_1.promises.access(siteDistPath);
+        // Check if pre-built site exists in dist/site
+        await fs_1.promises.access(distSitePath);
         // Copy all files from site to output directory
-        const files = await fs_1.promises.readdir(siteDistPath, { recursive: true });
+        const files = await fs_1.promises.readdir(distSitePath, { recursive: true });
         console.log(chalk_1.default.gray(`   Found ${files.length} files/dirs`));
+        for (const file of files) {
+            if (typeof file === 'string') {
+                const srcPath = path_1.default.join(distSitePath, file);
+                const destPath = path_1.default.join(outputPath, file);
+                const stat = await fs_1.promises.stat(srcPath);
+                if (stat.isFile()) {
+                    // Ensure destination directory exists
+                    await fs_1.promises.mkdir(path_1.default.dirname(destPath), { recursive: true });
+                    await fs_1.promises.copyFile(srcPath, destPath);
+                }
+            }
+        }
+    }
+    catch {
+        // Try to build and copy from site-generator directory
+        console.log(chalk_1.default.gray(`   Site files not found in dist, checking site-generator...`));
+        try {
+            await fs_1.promises.access(siteGeneratorPath);
+            await buildAndCopySite(siteGeneratorPath, outputPath);
+        }
+        catch {
+            // If neither exists, create a simple placeholder
+            console.log(chalk_1.default.yellow('   Site files not found, creating placeholder...'));
+            await createPlaceholderSite(outputPath);
+        }
+    }
+}
+async function buildAndCopySite(siteGeneratorPath, outputPath) {
+    const { exec } = require('child_process');
+    const { promisify } = require('util');
+    const execAsync = promisify(exec);
+    console.log(chalk_1.default.gray('   Building React site...'));
+    try {
+        // Build the React app
+        await execAsync('npm run build', { cwd: siteGeneratorPath });
+        // Copy built files directly to output
+        const siteDistPath = path_1.default.join(siteGeneratorPath, 'dist');
+        const files = await fs_1.promises.readdir(siteDistPath, { recursive: true });
+        console.log(chalk_1.default.gray(`   Found ${files.length} built files/dirs`));
         for (const file of files) {
             if (typeof file === 'string') {
                 const srcPath = path_1.default.join(siteDistPath, file);
@@ -103,10 +144,11 @@ async function copySiteFiles(outputPath) {
                 }
             }
         }
+        console.log(chalk_1.default.green('   React site built and copied successfully'));
     }
-    catch {
-        // If site doesn't exist, create a simple placeholder
-        console.log(chalk_1.default.yellow('   Site files not found, creating placeholder...'));
+    catch (error) {
+        console.log(chalk_1.default.yellow(`   Failed to build React site: ${error instanceof Error ? error.message : error}`));
+        console.log(chalk_1.default.yellow('   Creating placeholder...'));
         await createPlaceholderSite(outputPath);
     }
 }
