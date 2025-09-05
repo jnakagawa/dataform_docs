@@ -1,7 +1,7 @@
 {
   "name": "dataform-docs",
   "version": "1.0.0",
-  "description": "Beautiful documentation generator for Dataform projects",
+  "description": "Generate beautiful, interactive documentation for Dataform projects with dependency graphs",
   "main": "dist/cli/index.js",
   "bin": {
     "dataform-docs": "./dist/cli/index.js"
@@ -24,9 +24,21 @@
     "data-warehouse",
     "sql",
     "dag",
-    "analytics"
+    "analytics",
+    "bigquery",
+    "dependency-graph",
+    "data-pipeline",
+    "data-engineering"
   ],
-  "author": "",
+  "author": "Jonah Nakagawa",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jnakagawa/dataform_docs.git"
+  },
+  "homepage": "https://github.com/jnakagawa/dataform_docs#readme",
+  "bugs": {
+    "url": "https://github.com/jnakagawa/dataform_docs/issues"
+  },
   "license": "MIT",
   "dependencies": {
     "chalk": "^5.3.0",
