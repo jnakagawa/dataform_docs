@@ -8,7 +8,7 @@
   },
   "scripts": {
     "build": "node_modules/.bin/tsc && npm run build:site",
-    "build:site": "cd site-generator && npm run build && cp -r dist/* ../test-docs/",
+    "build:site": "cd site-generator && npm run build",
     "dev": "node_modules/.bin/tsc --watch",
     "test": "jest",
     "lint": "eslint src/**/*.ts",
