@@ -7,10 +7,6 @@ export declare class DataformCompiler {
     private extractDependencies;
     private extractDependenciesFromSQL;
     /**
-     * Check if Dataform CLI is available
-     */
-    static isDataformAvailable(): Promise<boolean>;
-    /**
      * Get Dataform project info
      */
     getProjectInfo(projectPath: string): Promise<{

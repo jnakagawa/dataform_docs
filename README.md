@@ -12,6 +12,11 @@ Generate beautiful, interactive documentation for your Dataform projects with de
 📱 **Resizable Panels** - Customize your workspace layout  
 🚀 **Fast & Static** - Generates self-contained HTML that can be hosted anywhere
 
+## Requirements
+
+- **Node.js** 16 or higher
+- **Dataform CLI** - Automatically installed as a dependency for optimal column extraction and compilation
+
 ## Quick Start
 
 The easiest way to use dataform-docs is with npx (no installation required):

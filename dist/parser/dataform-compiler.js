@@ -108,18 +108,6 @@ class DataformCompiler {
         return Array.from(dependencies);
     }
     /**
-     * Check if Dataform CLI is available
-     */
-    static async isDataformAvailable() {
-        try {
-            await execAsync('dataform --version');
-            return true;
-        }
-        catch {
-            return false;
-        }
-    }
-    /**
      * Get Dataform project info
      */
     async getProjectInfo(projectPath) {

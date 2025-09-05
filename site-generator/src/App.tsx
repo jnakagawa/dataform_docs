@@ -8,14 +8,12 @@ import Search from './components/Search';
 import { DataLoader } from './utils/data-loader';
 import { Manifest, Catalog } from './types';
 
-type View = 'graph' | 'list';
 
 function App() {
   const [manifest, setManifest] = useState<Manifest | null>(null);
   const [catalog, setCatalog] = useState<Catalog | null>(null);
   const [selectedModel, setSelectedModel] = useState<string | null>(null);
   const [isolatedModel, setIsolatedModel] = useState<string | null>(null);
-  const [currentView, setCurrentView] = useState<View>('graph');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
@@ -125,7 +123,10 @@ function App() {
             </div>
             <div>
               <h1 className="text-xl font-semibold text-gray-900">
-                Dataform Documentation v3 {isolatedModel && `- Isolated: ${isolatedModel}`}
+                Dataform Documentation: {(() => {
+                  const projectPath = manifest.metadata?.projectPath || '';
+                  return projectPath.split('/').pop() || 'Unknown Project';
+                })()}
               </h1>
               <p className="text-sm text-gray-600">
                 Generated {new Date(manifest.metadata.generatedAt).toLocaleDateString()}
@@ -146,45 +147,12 @@ function App() {
           </div>
         </div>
 
-        {/* View Toggle */}
-        <div className="mt-4 flex items-center gap-2">
-          <div className="bg-gray-100 rounded-lg p-1">
-            <button
-              onClick={() => setCurrentView('graph')}
-              className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
-                currentView === 'graph'
-                  ? 'bg-white text-gray-900 shadow-sm'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              Dependency Graph
-            </button>
-            <button
-              onClick={() => setCurrentView('list')}
-              className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
-                currentView === 'list'
-                  ? 'bg-white text-gray-900 shadow-sm'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              Model List
-            </button>
-          </div>
-          
-          {/* Test isolation button */}
-          <button
-            onClick={() => handleModelSelect('f_user_commerce')}
-            className="px-3 py-1.5 text-xs bg-blue-600 text-white rounded-md hover:bg-blue-700"
-          >
-            Test Isolation
-          </button>
-        </div>
       </header>
 
       <div className="flex-1 overflow-hidden">
         <PanelGroup direction="horizontal">
           {/* Left Sidebar - Model List */}
-          <Panel defaultSize={25} minSize={15} maxSize={40}>
+          <Panel defaultSize={20} minSize={15} maxSize={35}>
             <div className="h-full flex flex-col bg-white border-r border-gray-200">
               <Search
                 models={manifest.models}
@@ -213,77 +181,64 @@ function App() {
           <PanelResizeHandle className="w-2 bg-gray-100 hover:bg-gray-200 cursor-col-resize transition-colors" />
 
           {/* Main Content - Graph/List View */}
-          <Panel defaultSize={selectedModelData ? 50 : 75} minSize={30}>
+          <Panel defaultSize={selectedModelData ? 45 : 80} minSize={30}>
             <div className="h-full">
-              {currentView === 'graph' ? (
-                <div className="relative h-full">
-                  <DependencyGraph
-                    models={manifest.models}
-                    onNodeClick={(model) => handleModelSelect(model.name)}
-                    selectedModel={selectedModel || undefined}
-                    isolateModel={isolatedModel || undefined}
-                  />
-                  {isolatedModel && (
-                    <div className="absolute top-4 left-4 bg-white rounded-lg shadow-md p-3 border border-gray-200">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium text-gray-700">
-                          Showing pipeline for: <span className="text-blue-600 font-semibold">{isolatedModel}</span>
-                        </span>
-                        <span className="text-xs text-gray-500 bg-gray-50 px-2 py-1 rounded">
-                          {(() => {
-                            // Calculate connected models count for display
-                            const getConnectedCount = (modelName: string, models: Record<string, any>) => {
-                              const connected = new Set<string>([modelName]);
-                              const visited = new Set<string>();
+              <div className="relative h-full">
+                <DependencyGraph
+                  models={manifest.models}
+                  onNodeClick={(model) => handleModelSelect(model.name)}
+                  selectedModel={selectedModel || undefined}
+                  isolateModel={isolatedModel || undefined}
+                />
+                {isolatedModel && (
+                  <div className="absolute top-4 left-4 bg-white rounded-lg shadow-md p-3 border border-gray-200">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-gray-700">
+                        Showing pipeline for: <span className="text-blue-600 font-semibold">{isolatedModel}</span>
+                      </span>
+                      <span className="text-xs text-gray-500 bg-gray-50 px-2 py-1 rounded">
+                        {(() => {
+                          // Calculate connected models count for display
+                          const getConnectedCount = (modelName: string, models: Record<string, any>) => {
+                            const connected = new Set<string>([modelName]);
+                            const visited = new Set<string>();
+                            
+                            const traverse = (name: string) => {
+                              if (visited.has(name) || !models[name]) return;
+                              visited.add(name);
+                              connected.add(name);
                               
-                              const traverse = (name: string) => {
-                                if (visited.has(name) || !models[name]) return;
-                                visited.add(name);
-                                connected.add(name);
-                                
-                                // Add dependencies
-                                models[name].dependencies.forEach((dep: string) => {
-                                  if (models[dep]) traverse(dep);
-                                });
-                                
-                                // Add dependents
-                                Object.values(models).forEach((model: any) => {
-                                  if (model.dependencies.includes(name)) {
-                                    traverse(model.name);
-                                  }
-                                });
-                              };
+                              // Add dependencies
+                              models[name].dependencies.forEach((dep: string) => {
+                                if (models[dep]) traverse(dep);
+                              });
                               
-                              traverse(modelName);
-                              return connected.size;
+                              // Add dependents
+                              Object.values(models).forEach((model: any) => {
+                                if (model.dependencies.includes(name)) {
+                                  traverse(model.name);
+                                }
+                              });
                             };
                             
-                            const connectedCount = getConnectedCount(isolatedModel, manifest.models);
-                            return `${connectedCount} of ${Object.keys(manifest.models).length}`;
-                          })()}
-                        </span>
-                        <button
-                          onClick={handleClearIsolation}
-                          className="px-3 py-1 text-xs bg-blue-600 text-white hover:bg-blue-700 rounded transition-colors font-medium"
-                        >
-                          Show All
-                        </button>
-                      </div>
+                            traverse(modelName);
+                            return connected.size;
+                          };
+                          
+                          const connectedCount = getConnectedCount(isolatedModel, manifest.models);
+                          return `${connectedCount} of ${Object.keys(manifest.models).length}`;
+                        })()}
+                      </span>
+                      <button
+                        onClick={handleClearIsolation}
+                        className="px-3 py-1 text-xs bg-blue-600 text-white hover:bg-blue-700 rounded transition-colors font-medium"
+                      >
+                        Show All
+                      </button>
                     </div>
-                  )}
-                </div>
-              ) : (
-                <div className="h-full bg-white">
-                  <ModelList
-                    models={manifest.models}
-                    selectedModel={selectedModel || undefined}
-                    onModelSelect={handleModelSelect}
-                    searchTerm={searchTerm}
-                    filterType={filterType}
-                    filterTag={filterTag}
-                  />
-                </div>
-              )}
+                  </div>
+                )}
+              </div>
             </div>
           </Panel>
 
@@ -291,7 +246,7 @@ function App() {
           {selectedModelData && (
             <>
               <PanelResizeHandle className="w-2 bg-gray-100 hover:bg-gray-200 cursor-col-resize transition-colors" />
-              <Panel defaultSize={25} minSize={20} maxSize={50}>
+              <Panel defaultSize={35} minSize={25} maxSize={55}>
                 <div className="h-full bg-white border-l border-gray-200">
                   <ModelDetails
                     model={selectedModelData}
@@ -311,10 +266,7 @@ function App() {
         <div className="fixed bottom-6 right-6">
           <div className="bg-white rounded-lg shadow-lg border border-gray-200 p-4 max-w-sm">
             <p className="text-sm text-gray-600">
-              {currentView === 'graph' 
-                ? 'Click on a node in the graph to view model details'
-                : 'Select a model from the list to view details'
-              }
+              Click on a node in the graph to view model details
             </p>
           </div>
         </div>

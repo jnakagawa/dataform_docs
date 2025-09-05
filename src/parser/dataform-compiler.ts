@@ -162,17 +162,6 @@ export class DataformCompiler {
     return Array.from(dependencies);
   }
 
-  /**
-   * Check if Dataform CLI is available
-   */
-  static async isDataformAvailable(): Promise<boolean> {
-    try {
-      await execAsync('dataform --version');
-      return true;
-    } catch {
-      return false;
-    }
-  }
 
   /**
    * Get Dataform project info

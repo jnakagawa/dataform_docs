@@ -7,7 +7,6 @@ exports.generateCommand = generateCommand;
 const fs_1 = require("fs");
 const path_1 = __importDefault(require("path"));
 const chalk_1 = __importDefault(require("chalk"));
-const sqlx_parser_1 = require("../parser/sqlx-parser");
 const dataform_compiler_1 = require("../parser/dataform-compiler");
 const dependency_graph_1 = require("../parser/dependency-graph");
 const manifest_builder_1 = require("../generator/manifest-builder");
@@ -25,34 +24,15 @@ async function generateCommand(options) {
         catch {
             throw new Error(`Definitions folder not found at ${definitionsPath}. Make sure you're in a Dataform project directory.`);
         }
-        // Try using Dataform CLI first, fall back to manual parsing
-        let models = {};
-        let catalog = { models: {} };
-        if (await dataform_compiler_1.DataformCompiler.isDataformAvailable()) {
-            console.log(chalk_1.default.yellow('📁 Compiling project using Dataform CLI...'));
-            try {
-                const compiler = new dataform_compiler_1.DataformCompiler();
-                const projectInfo = await compiler.getProjectInfo(projectPath);
-                console.log(chalk_1.default.gray(`   Project info: ${JSON.stringify(projectInfo)}`));
-                models = await compiler.compileProject(projectPath);
-                catalog = compiler.getCatalog();
-                console.log(chalk_1.default.green(`   Found ${Object.keys(models).length} models via Dataform compilation`));
-                console.log(chalk_1.default.green(`   Extracted column info for ${Object.keys(catalog.models).length} models`));
-            }
-            catch (error) {
-                console.log(chalk_1.default.yellow(`   Dataform compilation failed: ${error instanceof Error ? error.message : error}`));
-                console.log(chalk_1.default.yellow('   Falling back to manual SQLX parsing...'));
-                const parser = new sqlx_parser_1.SqlxParser();
-                models = await parser.parseProject(projectPath);
-                console.log(chalk_1.default.green(`   Found ${Object.keys(models).length} models via manual parsing`));
-            }
-        }
-        else {
-            console.log(chalk_1.default.yellow('📁 Dataform CLI not available, parsing SQLX files manually...'));
-            const parser = new sqlx_parser_1.SqlxParser();
-            models = await parser.parseProject(projectPath);
-            console.log(chalk_1.default.green(`   Found ${Object.keys(models).length} models`));
-        }
+        // Compile project using Dataform CLI (bundled as dependency)
+        console.log(chalk_1.default.yellow('📁 Compiling project using Dataform CLI...'));
+        const compiler = new dataform_compiler_1.DataformCompiler();
+        const projectInfo = await compiler.getProjectInfo(projectPath);
+        console.log(chalk_1.default.gray(`   Project info: ${JSON.stringify(projectInfo)}`));
+        const models = await compiler.compileProject(projectPath);
+        const catalog = compiler.getCatalog();
+        console.log(chalk_1.default.green(`   Found ${Object.keys(models).length} models via Dataform compilation`));
+        console.log(chalk_1.default.green(`   Extracted column info for ${Object.keys(catalog.models).length} models`));
         console.log(chalk_1.default.yellow('🔗 Building dependency graph...'));
         const graphBuilder = new dependency_graph_1.DependencyGraphBuilder();
         const dependencyGraph = graphBuilder.build(models);
