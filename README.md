@@ -12,6 +12,22 @@ Generate beautiful, interactive documentation for your Dataform projects with de
 📱 **Resizable Panels** - Customize your workspace layout  
 🚀 **Fast & Static** - Generates self-contained HTML that can be hosted anywhere
 
+## Demo
+
+🌟 **[View Live Demo](https://jnakagawa.github.io/dataform-climbing-docs/)** - Interactive climbing database documentation
+
+The demo showcases a complete Dataform project with:
+- Complex dependency relationships between tables and views
+- Pipeline isolation to focus on specific models
+- Column schemas with types and descriptions  
+- Interactive dependency graph with auto-zoom
+- Real sample data from a climbing activity tracking system
+
+## Requirements
+
+- **Node.js** 16 or higher
+- **Dataform CLI** - Automatically installed as a dependency for optimal column extraction and compilation
+
 ## Quick Start
 
 The easiest way to use dataform-docs is with npx (no installation required):
@@ -22,7 +38,7 @@ npx dataform-docs generate
 npx dataform-docs serve
 ```
 
-Open http://localhost:3000 to view your documentation.
+Open http://localhost:4200 to view your documentation.
 
 ## Installation
 
@@ -77,7 +93,7 @@ dataform-docs serve [options]
 
 Options:
   -d, --docs <path>     Path to generated docs (default: ./dataform-docs)
-  --port <number>       Port number (default: 3000)
+  --port <number>       Port number (default: 4200)
   --host <string>       Host address (default: localhost)
   --no-open            Don't open browser automatically
 ```
