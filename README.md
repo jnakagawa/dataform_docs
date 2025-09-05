@@ -22,7 +22,7 @@ npx dataform-docs generate
 npx dataform-docs serve
 ```
 
-Open http://localhost:3000 to view your documentation.
+Open http://localhost:4200 to view your documentation.
 
 ## Installation
 
@@ -77,7 +77,7 @@ dataform-docs serve [options]
 
 Options:
   -d, --docs <path>     Path to generated docs (default: ./dataform-docs)
-  --port <number>       Port number (default: 3000)
+  --port <number>       Port number (default: 4200)
   --host <string>       Host address (default: localhost)
   --no-open            Don't open browser automatically
 ```

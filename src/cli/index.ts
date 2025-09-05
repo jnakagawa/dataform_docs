@@ -23,7 +23,7 @@ program
 program
   .command('serve')
   .description('Serve the generated documentation')
-  .option('-p, --port <number>', 'Port to serve on', '8080')
+  .option('-p, --port <number>', 'Port to serve on', '4200')
   .option('-d, --dir <path>', 'Directory to serve', './dataform-docs')
   .option('--open', 'Open browser automatically')
   .action(serveCommand);
