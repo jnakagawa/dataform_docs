@@ -8,8 +8,6 @@ Generate beautiful, interactive documentation for your Dataform projects with de
 🔍 **Pipeline Isolation** - Focus on specific models and their dependencies  
 🎯 **Auto-zoom** - Automatically zoom to isolated pipelines for better visibility  
 📊 **Column Definitions** - View table schemas and column descriptions  
-🎨 **Professional Design** - Clean, modern UI inspired by UntitledUI  
-📱 **Resizable Panels** - Customize your workspace layout  
 🚀 **Fast & Static** - Generates self-contained HTML that can be hosted anywhere
 
 ## Demo
@@ -18,12 +16,6 @@ Generate beautiful, interactive documentation for your Dataform projects with de
 
 ![Demo Screenshot](db_demo.png)
 
-The demo showcases a complete Dataform project with:
-- Complex dependency relationships between tables and views
-- Pipeline isolation to focus on specific models
-- Column schemas with types and descriptions  
-- Interactive dependency graph with auto-zoom
-- Real sample data from a climbing activity tracking system
 
 ## Requirements
 
