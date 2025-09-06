@@ -169,6 +169,19 @@ async function createPlaceholderSite(outputPath: string) {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Dataform Documentation</title>
+  
+  <!-- Open Graph meta tags for social media sharing -->
+  <meta property="og:title" content="Dataform Documentation" />
+  <meta property="og:description" content="Interactive documentation for your Dataform projects with dependency graphs, pipeline isolation, and auto-zoom functionality." />
+  <meta property="og:image" content="https://raw.githubusercontent.com/jnakagawa/dataform_docs/main/db_demo.png" />
+  <meta property="og:url" content="https://jnakagawa.github.io/dataform-climbing-docs/" />
+  <meta property="og:type" content="website" />
+  
+  <!-- Twitter Card meta tags -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Dataform Documentation" />
+  <meta name="twitter:description" content="Interactive documentation for your Dataform projects with dependency graphs, pipeline isolation, and auto-zoom functionality." />
+  <meta name="twitter:image" content="https://raw.githubusercontent.com/jnakagawa/dataform_docs/main/db_demo.png" />
   <style>
     body { font-family: system-ui, -apple-system, sans-serif; margin: 40px; }
     .container { max-width: 800px; margin: 0 auto; }
