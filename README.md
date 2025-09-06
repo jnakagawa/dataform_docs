@@ -16,6 +16,8 @@ Generate beautiful, interactive documentation for your Dataform projects with de
 
 🌟 **[View Live Demo](https://jnakagawa.github.io/dataform-climbing-docs/)** - Interactive climbing database documentation
 
+![Demo Screenshot](db_demo.png)
+
 The demo showcases a complete Dataform project with:
 - Complex dependency relationships between tables and views
 - Pipeline isolation to focus on specific models
