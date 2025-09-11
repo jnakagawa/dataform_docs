@@ -18,6 +18,7 @@ program
     .description('Generate documentation for a Dataform project')
     .option('-p, --project <path>', 'Path to Dataform project', process.cwd())
     .option('-o, --output <path>', 'Output directory', './dataform-docs')
+    .option('-b, --base-path <path>', 'Base path for serving the documentation (e.g., /dataform/docs/)')
     .option('--no-compile', 'Skip SQL compilation')
     .action(generate_1.generateCommand);
 program
