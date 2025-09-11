@@ -8,5 +8,5 @@ export default defineConfig({
     assetsDir: 'assets',
     emptyOutDir: true,
   },
-  base: './',
+  base: process.env.VITE_BASE_PATH || './',
 })

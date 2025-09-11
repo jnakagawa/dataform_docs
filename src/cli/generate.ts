@@ -5,10 +5,31 @@ import { DataformCompiler } from '../parser/dataform-compiler';
 import { DependencyGraphBuilder } from '../parser/dependency-graph';
 import { ManifestBuilder } from '../generator/manifest-builder';
 
+function normalizeBasePath(basePath?: string): string {
+  if (!basePath) return './';
+  
+  // Handle absolute URLs (keep as-is)
+  if (basePath.startsWith('http://') || basePath.startsWith('https://')) {
+    return basePath.endsWith('/') ? basePath : basePath + '/';
+  }
+  
+  // Handle relative paths
+  let normalized = basePath;
+  if (!normalized.startsWith('/')) {
+    normalized = '/' + normalized;
+  }
+  if (!normalized.endsWith('/')) {
+    normalized = normalized + '/';
+  }
+  
+  return normalized;
+}
+
 interface GenerateOptions {
   project: string;
   output: string;
   compile: boolean;
+  basePath?: string;
 }
 
 export async function generateCommand(options: GenerateOptions) {
@@ -69,7 +90,7 @@ export async function generateCommand(options: GenerateOptions) {
 
     // Copy static site files
     console.log(chalk.yellow('📦 Copying site files...'));
-    await copySiteFiles(outputPath);
+    await copySiteFiles(outputPath, options.basePath);
 
     console.log(chalk.green('✅ Documentation generated successfully!'));
     console.log(chalk.blue(`   Run "dataform-docs serve -d ${options.output}" to view it`));
@@ -81,7 +102,7 @@ export async function generateCommand(options: GenerateOptions) {
   }
 }
 
-async function copySiteFiles(outputPath: string) {
+async function copySiteFiles(outputPath: string, basePath?: string) {
   // First try to find pre-built site files
   const distSitePath = path.join(__dirname, '../site');
   const siteGeneratorPath = path.join(__dirname, '../../site-generator');
@@ -115,16 +136,16 @@ async function copySiteFiles(outputPath: string) {
     
     try {
       await fs.access(siteGeneratorPath);
-      await buildAndCopySite(siteGeneratorPath, outputPath);
+      await buildAndCopySite(siteGeneratorPath, outputPath, basePath);
     } catch {
       // If neither exists, create a simple placeholder
       console.log(chalk.yellow('   Site files not found, creating placeholder...'));
-      await createPlaceholderSite(outputPath);
+      await createPlaceholderSite(outputPath, basePath);
     }
   }
 }
 
-async function buildAndCopySite(siteGeneratorPath: string, outputPath: string) {
+async function buildAndCopySite(siteGeneratorPath: string, outputPath: string, basePath?: string) {
   const { exec } = require('child_process');
   const { promisify } = require('util');
   const execAsync = promisify(exec);
@@ -132,8 +153,15 @@ async function buildAndCopySite(siteGeneratorPath: string, outputPath: string) {
   console.log(chalk.gray('   Building React site...'));
   
   try {
+    // Set environment variable for base path before building
+    const env = { ...process.env };
+    if (basePath) {
+      env.VITE_BASE_PATH = normalizeBasePath(basePath);
+      console.log(chalk.gray(`   Using base path: ${env.VITE_BASE_PATH}`));
+    }
+    
     // Build the React app
-    await execAsync('npm run build', { cwd: siteGeneratorPath });
+    await execAsync('npm run build', { cwd: siteGeneratorPath, env });
     
     // Copy built files directly to output
     const siteDistPath = path.join(siteGeneratorPath, 'dist');
@@ -158,11 +186,14 @@ async function buildAndCopySite(siteGeneratorPath: string, outputPath: string) {
   } catch (error) {
     console.log(chalk.yellow(`   Failed to build React site: ${error instanceof Error ? error.message : error}`));
     console.log(chalk.yellow('   Creating placeholder...'));
-    await createPlaceholderSite(outputPath);
+    await createPlaceholderSite(outputPath, basePath);
   }
 }
 
-async function createPlaceholderSite(outputPath: string) {
+async function createPlaceholderSite(outputPath: string, basePath?: string) {
+  const normalizedBasePath = normalizeBasePath(basePath);
+  const assetPath = normalizedBasePath === './' ? './' : normalizedBasePath;
+  
   const indexHtml = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -204,7 +235,7 @@ async function createPlaceholderSite(outputPath: string) {
 
   <script>
     // Simple preview of manifest data
-    fetch('./manifest.json')
+    fetch('${assetPath}manifest.json')
       .then(res => res.json())
       .then(data => {
         const manifestDiv = document.getElementById('manifest-preview');
