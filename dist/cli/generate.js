@@ -10,6 +10,23 @@ const chalk_1 = __importDefault(require("chalk"));
 const dataform_compiler_1 = require("../parser/dataform-compiler");
 const dependency_graph_1 = require("../parser/dependency-graph");
 const manifest_builder_1 = require("../generator/manifest-builder");
+function normalizeBasePath(basePath) {
+    if (!basePath)
+        return './';
+    // Handle absolute URLs (keep as-is)
+    if (basePath.startsWith('http://') || basePath.startsWith('https://')) {
+        return basePath.endsWith('/') ? basePath : basePath + '/';
+    }
+    // Handle relative paths
+    let normalized = basePath;
+    if (!normalized.startsWith('/')) {
+        normalized = '/' + normalized;
+    }
+    if (!normalized.endsWith('/')) {
+        normalized = normalized + '/';
+    }
+    return normalized;
+}
 async function generateCommand(options) {
     try {
         console.log(chalk_1.default.blue('🚀 Generating Dataform documentation...'));
@@ -52,7 +69,7 @@ async function generateCommand(options) {
         await fs_1.promises.writeFile(path_1.default.join(outputPath, 'catalog.json'), JSON.stringify(catalog, null, 2));
         // Copy static site files
         console.log(chalk_1.default.yellow('📦 Copying site files...'));
-        await copySiteFiles(outputPath);
+        await copySiteFiles(outputPath, options.basePath);
         console.log(chalk_1.default.green('✅ Documentation generated successfully!'));
         console.log(chalk_1.default.blue(`   Run "dataform-docs serve -d ${options.output}" to view it`));
     }
@@ -62,7 +79,7 @@ async function generateCommand(options) {
         process.exit(1);
     }
 }
-async function copySiteFiles(outputPath) {
+async function copySiteFiles(outputPath, basePath) {
     // First try to find pre-built site files
     const distSitePath = path_1.default.join(__dirname, '../site');
     const siteGeneratorPath = path_1.default.join(__dirname, '../../site-generator');
@@ -91,23 +108,29 @@ async function copySiteFiles(outputPath) {
         console.log(chalk_1.default.gray(`   Site files not found in dist, checking site-generator...`));
         try {
             await fs_1.promises.access(siteGeneratorPath);
-            await buildAndCopySite(siteGeneratorPath, outputPath);
+            await buildAndCopySite(siteGeneratorPath, outputPath, basePath);
         }
         catch {
             // If neither exists, create a simple placeholder
             console.log(chalk_1.default.yellow('   Site files not found, creating placeholder...'));
-            await createPlaceholderSite(outputPath);
+            await createPlaceholderSite(outputPath, basePath);
         }
     }
 }
-async function buildAndCopySite(siteGeneratorPath, outputPath) {
+async function buildAndCopySite(siteGeneratorPath, outputPath, basePath) {
     const { exec } = require('child_process');
     const { promisify } = require('util');
     const execAsync = promisify(exec);
     console.log(chalk_1.default.gray('   Building React site...'));
     try {
+        // Set environment variable for base path before building
+        const env = { ...process.env };
+        if (basePath) {
+            env.VITE_BASE_PATH = normalizeBasePath(basePath);
+            console.log(chalk_1.default.gray(`   Using base path: ${env.VITE_BASE_PATH}`));
+        }
         // Build the React app
-        await execAsync('npm run build', { cwd: siteGeneratorPath });
+        await execAsync('npm run build', { cwd: siteGeneratorPath, env });
         // Copy built files directly to output
         const siteDistPath = path_1.default.join(siteGeneratorPath, 'dist');
         const files = await fs_1.promises.readdir(siteDistPath, { recursive: true });
@@ -129,16 +152,31 @@ async function buildAndCopySite(siteGeneratorPath, outputPath) {
     catch (error) {
         console.log(chalk_1.default.yellow(`   Failed to build React site: ${error instanceof Error ? error.message : error}`));
         console.log(chalk_1.default.yellow('   Creating placeholder...'));
-        await createPlaceholderSite(outputPath);
+        await createPlaceholderSite(outputPath, basePath);
     }
 }
-async function createPlaceholderSite(outputPath) {
+async function createPlaceholderSite(outputPath, basePath) {
+    const normalizedBasePath = normalizeBasePath(basePath);
+    const assetPath = normalizedBasePath === './' ? './' : normalizedBasePath;
     const indexHtml = `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Dataform Documentation</title>
+  
+  <!-- Open Graph meta tags for social media sharing -->
+  <meta property="og:title" content="Dataform Documentation" />
+  <meta property="og:description" content="Interactive documentation for your Dataform projects with dependency graphs, pipeline isolation, and auto-zoom functionality." />
+  <meta property="og:image" content="https://raw.githubusercontent.com/jnakagawa/dataform_docs/main/db_demo.png" />
+  <meta property="og:url" content="https://jnakagawa.github.io/dataform-climbing-docs/" />
+  <meta property="og:type" content="website" />
+  
+  <!-- Twitter Card meta tags -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Dataform Documentation" />
+  <meta name="twitter:description" content="Interactive documentation for your Dataform projects with dependency graphs, pipeline isolation, and auto-zoom functionality." />
+  <meta name="twitter:image" content="https://raw.githubusercontent.com/jnakagawa/dataform_docs/main/db_demo.png" />
   <style>
     body { font-family: system-ui, -apple-system, sans-serif; margin: 40px; }
     .container { max-width: 800px; margin: 0 auto; }
@@ -161,7 +199,7 @@ async function createPlaceholderSite(outputPath) {
 
   <script>
     // Simple preview of manifest data
-    fetch('./manifest.json')
+    fetch('${assetPath}manifest.json')
       .then(res => res.json())
       .then(data => {
         const manifestDiv = document.getElementById('manifest-preview');

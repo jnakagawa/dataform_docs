@@ -1,6 +1,6 @@
 {
   "name": "dataform-docs",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Generate beautiful, interactive documentation for Dataform projects with dependency graphs",
   "main": "dist/cli/index.js",
   "bin": {
@@ -62,5 +62,16 @@
   },
   "engines": {
     "node": ">=16.0.0"
+  },
+  "overrides": {
+    "chalk": "5.6.0",
+    "debug": "4.4.1",
+    "ansi-styles": "6.2.1",
+    "strip-ansi": "7.1.0",
+    "ansi-regex": "6.2.0",
+    "color-convert": "2.0.1",
+    "color-name": "1.1.4",
+    "supports-color": "8.1.1",
+    "wrap-ansi": "8.1.0"
   }
 }
