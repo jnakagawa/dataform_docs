@@ -8,6 +8,72 @@ import Search from './components/Search';
 import { DataLoader } from './utils/data-loader';
 import { Manifest, Catalog } from './types';
 
+// URL state management utilities
+const parseUrlState = () => {
+  const hash = window.location.hash;
+  const urlParams = new URLSearchParams(window.location.search);
+
+  let selectedModel: string | null = null;
+  let viewMode: 'isolated' | 'full' = 'full';
+
+  // Parse hash for model selection: #/model/modelName
+  if (hash.startsWith('#/model/')) {
+    selectedModel = decodeURIComponent(hash.slice(8));
+  }
+
+  // Parse query params for additional state
+  if (urlParams.get('view') === 'isolated') {
+    viewMode = 'isolated';
+  }
+
+  return {
+    selectedModel,
+    viewMode,
+    searchTerm: urlParams.get('search') || '',
+    filterType: urlParams.get('type') || '',
+    filterTag: urlParams.get('tag') || '',
+  };
+};
+
+const updateUrl = (state: {
+  selectedModel?: string | null;
+  viewMode?: 'isolated' | 'full';
+  searchTerm?: string;
+  filterType?: string;
+  filterTag?: string;
+}) => {
+  const url = new URL(window.location.href);
+
+  // Update hash for model selection
+  if (state.selectedModel) {
+    url.hash = `#/model/${encodeURIComponent(state.selectedModel)}`;
+  } else {
+    url.hash = '';
+  }
+
+  // Update query params
+  url.searchParams.delete('view');
+  url.searchParams.delete('search');
+  url.searchParams.delete('type');
+  url.searchParams.delete('tag');
+
+  if (state.viewMode === 'isolated') {
+    url.searchParams.set('view', 'isolated');
+  }
+  if (state.searchTerm) {
+    url.searchParams.set('search', state.searchTerm);
+  }
+  if (state.filterType) {
+    url.searchParams.set('type', state.filterType);
+  }
+  if (state.filterTag) {
+    url.searchParams.set('tag', state.filterTag);
+  }
+
+  // Use replaceState to avoid creating too many history entries
+  window.history.replaceState(null, '', url.toString());
+};
+
 
 function App() {
   const [manifest, setManifest] = useState<Manifest | null>(null);
@@ -16,13 +82,44 @@ function App() {
   const [isolatedModel, setIsolatedModel] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
+
   // Search and filter state
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<string>('');
   const [filterTag, setFilterTag] = useState<string>('');
 
+  // Deep link state
+  const [isDeepLink, setIsDeepLink] = useState(false);
+
   const dataLoader = new DataLoader();
+
+  // Initialize state from URL on mount
+  useEffect(() => {
+    const urlState = parseUrlState();
+    const hasDeepLink = !!(urlState.selectedModel || urlState.searchTerm || urlState.filterType || urlState.filterTag);
+
+    setSelectedModel(urlState.selectedModel);
+    setIsolatedModel(urlState.viewMode === 'isolated' ? urlState.selectedModel : null);
+    setSearchTerm(urlState.searchTerm);
+    setFilterType(urlState.filterType);
+    setFilterTag(urlState.filterTag);
+    setIsDeepLink(hasDeepLink);
+  }, []);
+
+  // Listen for browser back/forward navigation
+  useEffect(() => {
+    const handlePopstate = () => {
+      const urlState = parseUrlState();
+      setSelectedModel(urlState.selectedModel);
+      setIsolatedModel(urlState.viewMode === 'isolated' ? urlState.selectedModel : null);
+      setSearchTerm(urlState.searchTerm);
+      setFilterType(urlState.filterType);
+      setFilterTag(urlState.filterTag);
+    };
+
+    window.addEventListener('popstate', handlePopstate);
+    return () => window.removeEventListener('popstate', handlePopstate);
+  }, []);
 
   useEffect(() => {
     loadData();
@@ -46,28 +143,83 @@ function App() {
   const handleModelSelect = (modelName: string) => {
     setSelectedModel(modelName);
     setIsolatedModel(modelName); // Also isolate the pipeline when selecting
+    setIsDeepLink(false); // Reset deep link flag for user interactions
+
+    // Update URL with isolated view
+    updateUrl({
+      selectedModel: modelName,
+      viewMode: 'isolated',
+      searchTerm,
+      filterType,
+      filterTag,
+    });
   };
 
   const handleClearIsolation = () => {
     setIsolatedModel(null);
+
+    // Update URL to show full view while keeping model selected
+    updateUrl({
+      selectedModel,
+      viewMode: 'full',
+      searchTerm,
+      filterType,
+      filterTag,
+    });
   };
 
   const handleSearchChange = (term: string) => {
     setSearchTerm(term);
+
+    // Update URL with search term
+    updateUrl({
+      selectedModel,
+      viewMode: isolatedModel ? 'isolated' : 'full',
+      searchTerm: term,
+      filterType,
+      filterTag,
+    });
   };
 
   const handleTypeFilter = (type: string) => {
     setFilterType(type);
+
+    // Update URL with type filter
+    updateUrl({
+      selectedModel,
+      viewMode: isolatedModel ? 'isolated' : 'full',
+      searchTerm,
+      filterType: type,
+      filterTag,
+    });
   };
 
   const handleTagFilter = (tag: string) => {
     setFilterTag(tag);
+
+    // Update URL with tag filter
+    updateUrl({
+      selectedModel,
+      viewMode: isolatedModel ? 'isolated' : 'full',
+      searchTerm,
+      filterType,
+      filterTag: tag,
+    });
   };
 
   const handleClearFilters = () => {
     setSearchTerm('');
     setFilterType('');
     setFilterTag('');
+
+    // Update URL with cleared filters
+    updateUrl({
+      selectedModel,
+      viewMode: isolatedModel ? 'isolated' : 'full',
+      searchTerm: '',
+      filterType: '',
+      filterTag: '',
+    });
   };
 
   if (loading) {
@@ -189,6 +341,8 @@ function App() {
                   onNodeClick={(model) => handleModelSelect(model.name)}
                   selectedModel={selectedModel || undefined}
                   isolateModel={isolatedModel || undefined}
+                  autoCenter={isDeepLink && !isolatedModel}
+                  onAutoCenterComplete={() => setIsDeepLink(false)}
                 />
                 {isolatedModel && (
                   <div className="absolute top-4 left-4 bg-white rounded-lg shadow-md p-3 border border-gray-200">

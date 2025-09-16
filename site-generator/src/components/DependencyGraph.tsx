@@ -24,6 +24,8 @@ interface DependencyGraphProps {
   onNodeClick?: (model: DataformModel) => void;
   selectedModel?: string;
   isolateModel?: string; // New prop for isolating a model's pipeline
+  autoCenter?: boolean; // Auto-center on selected model (for deep links)
+  onAutoCenterComplete?: () => void; // Callback when auto-centering completes
 }
 
 // Custom node component with UntitledUI styling
@@ -382,7 +384,7 @@ function CustomControls() {
   );
 }
 
-export default function DependencyGraph({ models, onNodeClick, selectedModel, isolateModel }: DependencyGraphProps) {
+export default function DependencyGraph({ models, onNodeClick, selectedModel, isolateModel, autoCenter, onAutoCenterComplete }: DependencyGraphProps) {
   const isIsolated = !!isolateModel;
   const [reactFlowInstance, setReactFlowInstance] = React.useState<any>(null);
   
@@ -474,10 +476,34 @@ export default function DependencyGraph({ models, onNodeClick, selectedModel, is
           maxZoom: 1.5,
         });
       }, 200);
-      
+
       return () => clearTimeout(timer);
     }
   }, [isolateModel, reactFlowInstance, nodes.length]);
+
+  // Auto-center on selected model (for deep links)
+  React.useEffect(() => {
+    if (autoCenter && selectedModel && reactFlowInstance && nodes.length > 0) {
+      const selectedNode = nodes.find(node => node.id === selectedModel);
+      if (selectedNode) {
+        // Small delay to let nodes settle after layout
+        const timer = setTimeout(() => {
+          reactFlowInstance.setCenter(
+            selectedNode.position.x + 40, // Account for node width
+            selectedNode.position.y + 20, // Account for node height
+            { zoom: 1, duration: 800 }
+          );
+
+          // Call completion callback after animation duration
+          if (onAutoCenterComplete) {
+            setTimeout(onAutoCenterComplete, 900); // Slightly after animation
+          }
+        }, 300);
+
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [autoCenter, selectedModel, reactFlowInstance, nodes, onAutoCenterComplete]);
 
   return (
     <div className="w-full h-full bg-gray-50 rounded-lg border border-gray-200 relative">
