@@ -1,0 +1,370 @@
+{
+  "models": {
+    "climb_master_table": {
+      "name": "climb_master_table",
+      "filePath": "marts/climb_master_table.sqlx",
+      "type": "table",
+      "tags": [],
+      "description": "Unified climb information combining route details, community ratings, and activity statistics",
+      "config": {
+        "type": "table",
+        "tags": [],
+        "description": "Unified climb information combining route details, community ratings, and activity statistics"
+      },
+      "sqlContent": "\n\nSELECT\n  c.climb_id,\n  c.name as climb_name,\n  c.location as climb_location,\n  c.grade,\n  c.type as climb_type,\n  c.height_ft,\n  \n  -- Community ratings\n  COALESCE(r.total_comments, 0) as total_comments,\n  r.avg_rating,\n  \n  -- Activity statistics\n  COALESCE(a.total_attempts, 0) as total_attempts,\n  COALESCE(a.unique_climbers, 0) as unique_climbers,\n  COALESCE(a.total_successful_attempts, 0) as total_successful_attempts,\n  COALESCE(ROUND(a.overall_success_rate * 100, 1), 0) as overall_success_rate,\n  COALESCE(ROUND(a.avg_attempts_per_session, 1), 0) as avg_attempts_per_session,\n  \n  -- Popularity score (weighted combination of attempts and ratings)\n  COALESCE(\n    (a.total_attempts * 0.7) + (r.avg_rating * r.total_comments * 0.3), \n    0\n  ) as popularity_score,\n  \n  a.last_activity_date\n\nFROM `.raw_climbs` c\nLEFT JOIN `.stg_climb_ratings` r ON c.climb_id = r.climb_id\nLEFT JOIN (\n  SELECT \n    climb_id,\n    COUNT(*) as total_attempts,\n    COUNT(DISTINCT user_id) as unique_climbers,\n    SUM(CASE WHEN success THEN 1 ELSE 0 END) as total_successful_attempts,\n    AVG(success_rate) as overall_success_rate,\n    AVG(attempts) as avg_attempts_per_session,\n    MAX(attempt_date) as last_activity_date\n  FROM `.stg_climb_activity`\n  GROUP BY climb_id\n) a ON c.climb_id = a.climb_id\n\nORDER BY popularity_score DESC",
+      "dependencies": [
+        "raw_climbs",
+        "stg_climb_ratings",
+        "stg_climb_activity"
+      ]
+    },
+    "daily_climb_counts": {
+      "name": "daily_climb_counts",
+      "filePath": "marts/daily_climb_counts.sqlx",
+      "type": "table",
+      "tags": [],
+      "description": "Daily climbing activity metrics aggregated by user and date",
+      "config": {
+        "type": "table",
+        "tags": [],
+        "description": "Daily climbing activity metrics aggregated by user and date"
+      },
+      "sqlContent": "\n\nSELECT\n  user_id,\n  username,\n  attempt_date as activity_date,\n  COUNT(*) as total_attempts,\n  COUNT(DISTINCT climb_id) as unique_climbs,\n  SUM(CASE WHEN success THEN 1 ELSE 0 END) as successful_attempts,\n  SUM(CASE WHEN NOT success THEN 1 ELSE 0 END) as failed_attempts,\n  ROUND(AVG(success_rate) * 100, 1) as success_rate,\n  ROUND(AVG(attempts), 1) as avg_attempts_per_climb\nFROM `.stg_climb_activity`\nGROUP BY user_id, username, attempt_date\nORDER BY activity_date DESC, user_id",
+      "dependencies": [
+        "stg_climb_activity"
+      ]
+    },
+    "user_climbing_summary": {
+      "name": "user_climbing_summary",
+      "filePath": "marts/user_climbing_summary.sqlx",
+      "type": "table",
+      "tags": [],
+      "description": "Comprehensive user climbing performance and activity summary statistics",
+      "config": {
+        "type": "table",
+        "tags": [],
+        "description": "Comprehensive user climbing performance and activity summary statistics"
+      },
+      "sqlContent": "\n\nSELECT\n  u.user_id,\n  u.username,\n  u.location as user_location,\n  u.experience_level,\n  \n  -- Activity summary\n  COUNT(DISTINCT a.attempt_date) as total_climbing_days,\n  COUNT(a.log_id) as total_attempts,\n  COUNT(DISTINCT a.climb_id) as total_unique_climbs,\n  SUM(CASE WHEN a.success THEN 1 ELSE 0 END) as total_successful_attempts,\n  ROUND(AVG(a.success_rate) * 100, 1) as overall_success_rate,\n  ROUND(AVG(a.attempts), 1) as avg_attempts_per_climb,\n  \n  -- Date statistics  \n  MIN(a.attempt_date) as first_activity_date,\n  MAX(a.attempt_date) as last_activity_date,\n  DATE_DIFF(CURRENT_DATE(), MAX(a.attempt_date), DAY) as days_since_last_activity,\n  \n  -- Most active month\n  (SELECT FORMAT_DATE('%Y-%m', attempt_date) \n   FROM `.stg_climb_activity` a2 \n   WHERE a2.user_id = u.user_id \n   GROUP BY FORMAT_DATE('%Y-%m', attempt_date)\n   ORDER BY COUNT(*) DESC \n   LIMIT 1) as most_active_month,\n   \n  -- Favorite climb type\n  (SELECT climb_type \n   FROM `.stg_climb_activity` a3 \n   WHERE a3.user_id = u.user_id \n   GROUP BY climb_type\n   ORDER BY COUNT(*) DESC \n   LIMIT 1) as favorite_climb_type\n\nFROM `.raw_users` u\nLEFT JOIN `.stg_climb_activity` a ON u.user_id = a.user_id\nGROUP BY u.user_id, u.username, u.location, u.experience_level\nORDER BY total_attempts DESC",
+      "dependencies": [
+        "stg_climb_activity",
+        "raw_users"
+      ]
+    },
+    "raw_climb_comments": {
+      "name": "raw_climb_comments",
+      "filePath": "sources/raw_climb_comments.sqlx",
+      "type": "view",
+      "tags": [],
+      "description": "Raw user comments and ratings for climbing routes from the community platform",
+      "config": {
+        "type": "view",
+        "tags": [],
+        "description": "Raw user comments and ratings for climbing routes from the community platform"
+      },
+      "sqlContent": "\n\n-- Sample climbing route comments and ratings\nSELECT * FROM UNNEST([\n  STRUCT(2001 as comment_id, 1 as user_id, 107 as climb_id, 4 as rating, 'Great climb! Good holds and amazing exposure.' as comment_text, DATE('2024-01-16') as date),\n  STRUCT(2002, 2, 106, 5, 'Absolutely stunning! Must-do route with perfect rock quality.', DATE('2024-01-18')),\n  STRUCT(2003, 3, 101, 5, 'The classic of classics. Intimidating but so worth it!', DATE('2024-01-22')),\n  STRUCT(2004, 4, 105, 3, 'Powerful moves but a bit morpho. Fun when you get the sequence.', DATE('2024-01-26')),\n  STRUCT(2005, 5, 103, 4, 'Steep and sustained. Bring your power endurance!', DATE('2024-01-30')),\n  STRUCT(2006, 6, 111, 4, 'Perfect for beginners. Great intro to desert climbing.', DATE('2024-02-06')),\n  STRUCT(2007, 7, 110, 5, 'Epic adventure! The approach is part of the experience.', DATE('2024-02-09')),\n  STRUCT(2008, 8, 113, 3, 'Good route but gets crowded. Go early in the day.', DATE('2024-02-13')),\n  STRUCT(2009, 9, 107, 4, 'Classic Flatirons climbing. Bring small gear for the crux.', DATE('2024-02-16')),\n  STRUCT(2010, 10, 104, 5, 'Best crack climb in Squamish! Technical and beautiful.', DATE('2024-02-19')),\n  STRUCT(2011, 1, 112, 4, 'Iconic roof crack. The video doesn\\'t do justice to the exposure!', DATE('2024-02-26')),\n  STRUCT(2012, 2, 102, 5, 'The most famous boulder problem ever. Historic and fun.', DATE('2024-03-02')),\n  STRUCT(2013, 3, 114, 3, 'Big wall adventure. Long but not as hard as it looks.', DATE('2024-03-12')),\n  STRUCT(2014, 8, 111, 5, 'Perfect moderate! Great for building confidence.', DATE('2024-03-11'))\n])",
+      "dependencies": []
+    },
+    "raw_climb_logs": {
+      "name": "raw_climb_logs",
+      "filePath": "sources/raw_climb_logs.sqlx",
+      "type": "view",
+      "tags": [],
+      "description": "Raw climbing attempt logs from the mobile app tracking system",
+      "config": {
+        "type": "view",
+        "tags": [],
+        "description": "Raw climbing attempt logs from the mobile app tracking system"
+      },
+      "sqlContent": "\n\n-- Sample climbing attempt logs with realistic patterns\nSELECT * FROM UNNEST([\n  STRUCT(1001 as log_id, 1 as user_id, 107 as climb_id, DATE('2024-01-15') as date, true as success, 3 as attempts),\n  STRUCT(1002, 1, 111, DATE('2024-01-15'), true, 1),\n  STRUCT(1003, 2, 106, DATE('2024-01-16'), false, 5),\n  STRUCT(1004, 3, 101, DATE('2024-01-20'), false, 2),\n  STRUCT(1005, 1, 113, DATE('2024-01-22'), true, 2),\n  STRUCT(1006, 4, 105, DATE('2024-01-25'), true, 8),\n  STRUCT(1007, 5, 103, DATE('2024-01-28'), false, 4),\n  STRUCT(1008, 2, 109, DATE('2024-02-01'), true, 1),\n  STRUCT(1009, 6, 111, DATE('2024-02-05'), true, 5),\n  STRUCT(1010, 7, 110, DATE('2024-02-08'), true, 1),\n  STRUCT(1011, 1, 112, DATE('2024-02-10'), true, 2),\n  STRUCT(1012, 8, 113, DATE('2024-02-12'), false, 3),\n  STRUCT(1013, 9, 107, DATE('2024-02-15'), true, 1),\n  STRUCT(1014, 10, 104, DATE('2024-02-18'), false, 6),\n  STRUCT(1015, 3, 112, DATE('2024-02-20'), true, 4),\n  STRUCT(1016, 4, 108, DATE('2024-02-22'), false, 12),\n  STRUCT(1017, 1, 109, DATE('2024-02-25'), true, 1),\n  STRUCT(1018, 5, 114, DATE('2024-02-28'), false, 3),\n  STRUCT(1019, 2, 102, DATE('2024-03-01'), true, 6),\n  STRUCT(1020, 6, 107, DATE('2024-03-05'), true, 4),\n  STRUCT(1021, 7, 101, DATE('2024-03-08'), false, 1),\n  STRUCT(1022, 8, 111, DATE('2024-03-10'), true, 2),\n  STRUCT(1023, 9, 113, DATE('2024-03-12'), true, 1),\n  STRUCT(1024, 10, 106, DATE('2024-03-15'), false, 8)\n])",
+      "dependencies": []
+    },
+    "raw_climbs": {
+      "name": "raw_climbs",
+      "filePath": "sources/raw_climbs.sqlx",
+      "type": "view",
+      "tags": [],
+      "description": "Raw climb route data from various climbing databases and guidebooks",
+      "config": {
+        "type": "view",
+        "tags": [],
+        "description": "Raw climb route data from various climbing databases and guidebooks"
+      },
+      "sqlContent": "\n\n-- Sample climbing routes from famous areas\nSELECT * FROM UNNEST([\n  STRUCT(101 as climb_id, 'The Nose' as name, 'El Capitan, Yosemite' as location, '5.14a' as grade, 'trad' as type, 3000 as height_ft),\n  STRUCT(102, 'Midnight Lightning', 'Camp 4, Yosemite', 'V8', 'boulder', NULL),\n  STRUCT(103, 'La Rambla', 'Siurana, Spain', '5.15a', 'sport', 80),\n  STRUCT(104, 'Dreamcatcher', 'Squamish Chief', '5.14d', 'trad', 500),\n  STRUCT(105, 'The Mandala', 'Bishop, CA', 'V12', 'boulder', NULL),\n  STRUCT(106, 'Biographie', 'Ceuse, France', '5.15c', 'sport', 120),\n  STRUCT(107, 'Royal Flush', 'Flatirons, CO', '5.12a', 'trad', 180),\n  STRUCT(108, 'Sharma', 'Fontainebleau', 'V15', 'boulder', NULL),\n  STRUCT(109, 'Just Do It', 'Smith Rock, OR', '5.14c', 'sport', 60),\n  STRUCT(110, 'Astroman', 'Washington Column, Yosemite', '5.11c', 'trad', 1200),\n  STRUCT(111, 'Easy Rider', 'Red Rocks, NV', '5.10a', 'trad', 400),\n  STRUCT(112, 'Separate Reality', 'Yosemite Valley', '5.12a', 'trad', 60),\n  STRUCT(113, 'Children of the Sun', 'Red River Gorge', '5.12d', 'sport', 70),\n  STRUCT(114, 'The Shield', 'El Capitan, Yosemite', '5.13b', 'trad', 3200)\n])",
+      "dependencies": []
+    },
+    "raw_users": {
+      "name": "raw_users",
+      "filePath": "sources/raw_users.sqlx",
+      "type": "view",
+      "tags": [],
+      "description": "Raw user data from the climbing app registration system",
+      "config": {
+        "type": "view",
+        "tags": [],
+        "description": "Raw user data from the climbing app registration system"
+      },
+      "sqlContent": "\n\n-- Sample climbing users data\nSELECT * FROM UNNEST([\n  STRUCT(1 as user_id, 'alex_crusher' as username, 'Boulder, CO' as location, 'advanced' as experience_level),\n  STRUCT(2, 'sarah_sends', 'Squamish, BC', 'expert'),\n  STRUCT(3, 'mike_trad', 'Yosemite, CA', 'intermediate'), \n  STRUCT(4, 'emma_boulder', 'Fontainebleau, FR', 'advanced'),\n  STRUCT(5, 'carlos_sport', 'El Chorro, ES', 'expert'),\n  STRUCT(6, 'jenny_newbie', 'Portland, OR', 'beginner'),\n  STRUCT(7, 'tom_alpine', 'Chamonix, FR', 'expert'),\n  STRUCT(8, 'lisa_gym', 'Brooklyn, NY', 'intermediate'),\n  STRUCT(9, 'dave_multi', 'Joshua Tree, CA', 'advanced'),\n  STRUCT(10, 'anna_comp', 'Salt Lake City, UT', 'expert')\n])",
+      "dependencies": []
+    },
+    "stg_climb_activity": {
+      "name": "stg_climb_activity",
+      "filePath": "staging/stg_climb_activity.sqlx",
+      "type": "view",
+      "tags": [],
+      "description": "Cleaned and joined climbing activity data combining logs, climbs, and users",
+      "config": {
+        "type": "view",
+        "tags": [],
+        "description": "Cleaned and joined climbing activity data combining logs, climbs, and users"
+      },
+      "sqlContent": "\n\nSELECT \n  l.log_id,\n  l.user_id,\n  l.climb_id,\n  u.username,\n  u.location as user_location,\n  u.experience_level,\n  c.name as climb_name,\n  c.location as climb_location,\n  c.grade,\n  c.type as climb_type,\n  c.height_ft,\n  l.date as attempt_date,\n  l.success,\n  l.attempts,\n  CASE WHEN l.success THEN 1.0 ELSE 0.0 END as success_rate\nFROM `.raw_climb_logs` l\nJOIN `.raw_users` u ON l.user_id = u.user_id  \nJOIN `.raw_climbs` c ON l.climb_id = c.climb_id",
+      "dependencies": [
+        "raw_climb_logs",
+        "raw_users",
+        "raw_climbs"
+      ]
+    },
+    "stg_climb_ratings": {
+      "name": "stg_climb_ratings",
+      "filePath": "staging/stg_climb_ratings.sqlx",
+      "type": "view",
+      "tags": [],
+      "description": "Aggregated climb ratings and comments from the community platform",
+      "config": {
+        "type": "view",
+        "tags": [],
+        "description": "Aggregated climb ratings and comments from the community platform"
+      },
+      "sqlContent": "\n\nSELECT \n  c.climb_id,\n  c.name as climb_name,\n  c.location as climb_location,\n  COUNT(cm.comment_id) as total_comments,\n  ROUND(AVG(cm.rating), 2) as avg_rating,\n  SUM(cm.rating) as total_rating_points,\n  MAX(cm.date) as latest_comment_date\nFROM `.raw_climbs` c\nLEFT JOIN `.raw_climb_comments` cm ON c.climb_id = cm.climb_id\nGROUP BY c.climb_id, c.name, c.location",
+      "dependencies": [
+        "raw_climbs",
+        "raw_climb_comments"
+      ]
+    }
+  },
+  "dependencyGraph": {
+    "nodes": [
+      {
+        "id": "climb_master_table",
+        "model": {
+          "name": "climb_master_table",
+          "filePath": "marts/climb_master_table.sqlx",
+          "type": "table",
+          "tags": [],
+          "description": "Unified climb information combining route details, community ratings, and activity statistics",
+          "config": {
+            "type": "table",
+            "tags": [],
+            "description": "Unified climb information combining route details, community ratings, and activity statistics"
+          },
+          "sqlContent": "\n\nSELECT\n  c.climb_id,\n  c.name as climb_name,\n  c.location as climb_location,\n  c.grade,\n  c.type as climb_type,\n  c.height_ft,\n  \n  -- Community ratings\n  COALESCE(r.total_comments, 0) as total_comments,\n  r.avg_rating,\n  \n  -- Activity statistics\n  COALESCE(a.total_attempts, 0) as total_attempts,\n  COALESCE(a.unique_climbers, 0) as unique_climbers,\n  COALESCE(a.total_successful_attempts, 0) as total_successful_attempts,\n  COALESCE(ROUND(a.overall_success_rate * 100, 1), 0) as overall_success_rate,\n  COALESCE(ROUND(a.avg_attempts_per_session, 1), 0) as avg_attempts_per_session,\n  \n  -- Popularity score (weighted combination of attempts and ratings)\n  COALESCE(\n    (a.total_attempts * 0.7) + (r.avg_rating * r.total_comments * 0.3), \n    0\n  ) as popularity_score,\n  \n  a.last_activity_date\n\nFROM `.raw_climbs` c\nLEFT JOIN `.stg_climb_ratings` r ON c.climb_id = r.climb_id\nLEFT JOIN (\n  SELECT \n    climb_id,\n    COUNT(*) as total_attempts,\n    COUNT(DISTINCT user_id) as unique_climbers,\n    SUM(CASE WHEN success THEN 1 ELSE 0 END) as total_successful_attempts,\n    AVG(success_rate) as overall_success_rate,\n    AVG(attempts) as avg_attempts_per_session,\n    MAX(attempt_date) as last_activity_date\n  FROM `.stg_climb_activity`\n  GROUP BY climb_id\n) a ON c.climb_id = a.climb_id\n\nORDER BY popularity_score DESC",
+          "dependencies": [
+            "raw_climbs",
+            "stg_climb_ratings",
+            "stg_climb_activity"
+          ]
+        }
+      },
+      {
+        "id": "daily_climb_counts",
+        "model": {
+          "name": "daily_climb_counts",
+          "filePath": "marts/daily_climb_counts.sqlx",
+          "type": "table",
+          "tags": [],
+          "description": "Daily climbing activity metrics aggregated by user and date",
+          "config": {
+            "type": "table",
+            "tags": [],
+            "description": "Daily climbing activity metrics aggregated by user and date"
+          },
+          "sqlContent": "\n\nSELECT\n  user_id,\n  username,\n  attempt_date as activity_date,\n  COUNT(*) as total_attempts,\n  COUNT(DISTINCT climb_id) as unique_climbs,\n  SUM(CASE WHEN success THEN 1 ELSE 0 END) as successful_attempts,\n  SUM(CASE WHEN NOT success THEN 1 ELSE 0 END) as failed_attempts,\n  ROUND(AVG(success_rate) * 100, 1) as success_rate,\n  ROUND(AVG(attempts), 1) as avg_attempts_per_climb\nFROM `.stg_climb_activity`\nGROUP BY user_id, username, attempt_date\nORDER BY activity_date DESC, user_id",
+          "dependencies": [
+            "stg_climb_activity"
+          ]
+        }
+      },
+      {
+        "id": "user_climbing_summary",
+        "model": {
+          "name": "user_climbing_summary",
+          "filePath": "marts/user_climbing_summary.sqlx",
+          "type": "table",
+          "tags": [],
+          "description": "Comprehensive user climbing performance and activity summary statistics",
+          "config": {
+            "type": "table",
+            "tags": [],
+            "description": "Comprehensive user climbing performance and activity summary statistics"
+          },
+          "sqlContent": "\n\nSELECT\n  u.user_id,\n  u.username,\n  u.location as user_location,\n  u.experience_level,\n  \n  -- Activity summary\n  COUNT(DISTINCT a.attempt_date) as total_climbing_days,\n  COUNT(a.log_id) as total_attempts,\n  COUNT(DISTINCT a.climb_id) as total_unique_climbs,\n  SUM(CASE WHEN a.success THEN 1 ELSE 0 END) as total_successful_attempts,\n  ROUND(AVG(a.success_rate) * 100, 1) as overall_success_rate,\n  ROUND(AVG(a.attempts), 1) as avg_attempts_per_climb,\n  \n  -- Date statistics  \n  MIN(a.attempt_date) as first_activity_date,\n  MAX(a.attempt_date) as last_activity_date,\n  DATE_DIFF(CURRENT_DATE(), MAX(a.attempt_date), DAY) as days_since_last_activity,\n  \n  -- Most active month\n  (SELECT FORMAT_DATE('%Y-%m', attempt_date) \n   FROM `.stg_climb_activity` a2 \n   WHERE a2.user_id = u.user_id \n   GROUP BY FORMAT_DATE('%Y-%m', attempt_date)\n   ORDER BY COUNT(*) DESC \n   LIMIT 1) as most_active_month,\n   \n  -- Favorite climb type\n  (SELECT climb_type \n   FROM `.stg_climb_activity` a3 \n   WHERE a3.user_id = u.user_id \n   GROUP BY climb_type\n   ORDER BY COUNT(*) DESC \n   LIMIT 1) as favorite_climb_type\n\nFROM `.raw_users` u\nLEFT JOIN `.stg_climb_activity` a ON u.user_id = a.user_id\nGROUP BY u.user_id, u.username, u.location, u.experience_level\nORDER BY total_attempts DESC",
+          "dependencies": [
+            "stg_climb_activity",
+            "raw_users"
+          ]
+        }
+      },
+      {
+        "id": "raw_climb_comments",
+        "model": {
+          "name": "raw_climb_comments",
+          "filePath": "sources/raw_climb_comments.sqlx",
+          "type": "view",
+          "tags": [],
+          "description": "Raw user comments and ratings for climbing routes from the community platform",
+          "config": {
+            "type": "view",
+            "tags": [],
+            "description": "Raw user comments and ratings for climbing routes from the community platform"
+          },
+          "sqlContent": "\n\n-- Sample climbing route comments and ratings\nSELECT * FROM UNNEST([\n  STRUCT(2001 as comment_id, 1 as user_id, 107 as climb_id, 4 as rating, 'Great climb! Good holds and amazing exposure.' as comment_text, DATE('2024-01-16') as date),\n  STRUCT(2002, 2, 106, 5, 'Absolutely stunning! Must-do route with perfect rock quality.', DATE('2024-01-18')),\n  STRUCT(2003, 3, 101, 5, 'The classic of classics. Intimidating but so worth it!', DATE('2024-01-22')),\n  STRUCT(2004, 4, 105, 3, 'Powerful moves but a bit morpho. Fun when you get the sequence.', DATE('2024-01-26')),\n  STRUCT(2005, 5, 103, 4, 'Steep and sustained. Bring your power endurance!', DATE('2024-01-30')),\n  STRUCT(2006, 6, 111, 4, 'Perfect for beginners. Great intro to desert climbing.', DATE('2024-02-06')),\n  STRUCT(2007, 7, 110, 5, 'Epic adventure! The approach is part of the experience.', DATE('2024-02-09')),\n  STRUCT(2008, 8, 113, 3, 'Good route but gets crowded. Go early in the day.', DATE('2024-02-13')),\n  STRUCT(2009, 9, 107, 4, 'Classic Flatirons climbing. Bring small gear for the crux.', DATE('2024-02-16')),\n  STRUCT(2010, 10, 104, 5, 'Best crack climb in Squamish! Technical and beautiful.', DATE('2024-02-19')),\n  STRUCT(2011, 1, 112, 4, 'Iconic roof crack. The video doesn\\'t do justice to the exposure!', DATE('2024-02-26')),\n  STRUCT(2012, 2, 102, 5, 'The most famous boulder problem ever. Historic and fun.', DATE('2024-03-02')),\n  STRUCT(2013, 3, 114, 3, 'Big wall adventure. Long but not as hard as it looks.', DATE('2024-03-12')),\n  STRUCT(2014, 8, 111, 5, 'Perfect moderate! Great for building confidence.', DATE('2024-03-11'))\n])",
+          "dependencies": []
+        }
+      },
+      {
+        "id": "raw_climb_logs",
+        "model": {
+          "name": "raw_climb_logs",
+          "filePath": "sources/raw_climb_logs.sqlx",
+          "type": "view",
+          "tags": [],
+          "description": "Raw climbing attempt logs from the mobile app tracking system",
+          "config": {
+            "type": "view",
+            "tags": [],
+            "description": "Raw climbing attempt logs from the mobile app tracking system"
+          },
+          "sqlContent": "\n\n-- Sample climbing attempt logs with realistic patterns\nSELECT * FROM UNNEST([\n  STRUCT(1001 as log_id, 1 as user_id, 107 as climb_id, DATE('2024-01-15') as date, true as success, 3 as attempts),\n  STRUCT(1002, 1, 111, DATE('2024-01-15'), true, 1),\n  STRUCT(1003, 2, 106, DATE('2024-01-16'), false, 5),\n  STRUCT(1004, 3, 101, DATE('2024-01-20'), false, 2),\n  STRUCT(1005, 1, 113, DATE('2024-01-22'), true, 2),\n  STRUCT(1006, 4, 105, DATE('2024-01-25'), true, 8),\n  STRUCT(1007, 5, 103, DATE('2024-01-28'), false, 4),\n  STRUCT(1008, 2, 109, DATE('2024-02-01'), true, 1),\n  STRUCT(1009, 6, 111, DATE('2024-02-05'), true, 5),\n  STRUCT(1010, 7, 110, DATE('2024-02-08'), true, 1),\n  STRUCT(1011, 1, 112, DATE('2024-02-10'), true, 2),\n  STRUCT(1012, 8, 113, DATE('2024-02-12'), false, 3),\n  STRUCT(1013, 9, 107, DATE('2024-02-15'), true, 1),\n  STRUCT(1014, 10, 104, DATE('2024-02-18'), false, 6),\n  STRUCT(1015, 3, 112, DATE('2024-02-20'), true, 4),\n  STRUCT(1016, 4, 108, DATE('2024-02-22'), false, 12),\n  STRUCT(1017, 1, 109, DATE('2024-02-25'), true, 1),\n  STRUCT(1018, 5, 114, DATE('2024-02-28'), false, 3),\n  STRUCT(1019, 2, 102, DATE('2024-03-01'), true, 6),\n  STRUCT(1020, 6, 107, DATE('2024-03-05'), true, 4),\n  STRUCT(1021, 7, 101, DATE('2024-03-08'), false, 1),\n  STRUCT(1022, 8, 111, DATE('2024-03-10'), true, 2),\n  STRUCT(1023, 9, 113, DATE('2024-03-12'), true, 1),\n  STRUCT(1024, 10, 106, DATE('2024-03-15'), false, 8)\n])",
+          "dependencies": []
+        }
+      },
+      {
+        "id": "raw_climbs",
+        "model": {
+          "name": "raw_climbs",
+          "filePath": "sources/raw_climbs.sqlx",
+          "type": "view",
+          "tags": [],
+          "description": "Raw climb route data from various climbing databases and guidebooks",
+          "config": {
+            "type": "view",
+            "tags": [],
+            "description": "Raw climb route data from various climbing databases and guidebooks"
+          },
+          "sqlContent": "\n\n-- Sample climbing routes from famous areas\nSELECT * FROM UNNEST([\n  STRUCT(101 as climb_id, 'The Nose' as name, 'El Capitan, Yosemite' as location, '5.14a' as grade, 'trad' as type, 3000 as height_ft),\n  STRUCT(102, 'Midnight Lightning', 'Camp 4, Yosemite', 'V8', 'boulder', NULL),\n  STRUCT(103, 'La Rambla', 'Siurana, Spain', '5.15a', 'sport', 80),\n  STRUCT(104, 'Dreamcatcher', 'Squamish Chief', '5.14d', 'trad', 500),\n  STRUCT(105, 'The Mandala', 'Bishop, CA', 'V12', 'boulder', NULL),\n  STRUCT(106, 'Biographie', 'Ceuse, France', '5.15c', 'sport', 120),\n  STRUCT(107, 'Royal Flush', 'Flatirons, CO', '5.12a', 'trad', 180),\n  STRUCT(108, 'Sharma', 'Fontainebleau', 'V15', 'boulder', NULL),\n  STRUCT(109, 'Just Do It', 'Smith Rock, OR', '5.14c', 'sport', 60),\n  STRUCT(110, 'Astroman', 'Washington Column, Yosemite', '5.11c', 'trad', 1200),\n  STRUCT(111, 'Easy Rider', 'Red Rocks, NV', '5.10a', 'trad', 400),\n  STRUCT(112, 'Separate Reality', 'Yosemite Valley', '5.12a', 'trad', 60),\n  STRUCT(113, 'Children of the Sun', 'Red River Gorge', '5.12d', 'sport', 70),\n  STRUCT(114, 'The Shield', 'El Capitan, Yosemite', '5.13b', 'trad', 3200)\n])",
+          "dependencies": []
+        }
+      },
+      {
+        "id": "raw_users",
+        "model": {
+          "name": "raw_users",
+          "filePath": "sources/raw_users.sqlx",
+          "type": "view",
+          "tags": [],
+          "description": "Raw user data from the climbing app registration system",
+          "config": {
+            "type": "view",
+            "tags": [],
+            "description": "Raw user data from the climbing app registration system"
+          },
+          "sqlContent": "\n\n-- Sample climbing users data\nSELECT * FROM UNNEST([\n  STRUCT(1 as user_id, 'alex_crusher' as username, 'Boulder, CO' as location, 'advanced' as experience_level),\n  STRUCT(2, 'sarah_sends', 'Squamish, BC', 'expert'),\n  STRUCT(3, 'mike_trad', 'Yosemite, CA', 'intermediate'), \n  STRUCT(4, 'emma_boulder', 'Fontainebleau, FR', 'advanced'),\n  STRUCT(5, 'carlos_sport', 'El Chorro, ES', 'expert'),\n  STRUCT(6, 'jenny_newbie', 'Portland, OR', 'beginner'),\n  STRUCT(7, 'tom_alpine', 'Chamonix, FR', 'expert'),\n  STRUCT(8, 'lisa_gym', 'Brooklyn, NY', 'intermediate'),\n  STRUCT(9, 'dave_multi', 'Joshua Tree, CA', 'advanced'),\n  STRUCT(10, 'anna_comp', 'Salt Lake City, UT', 'expert')\n])",
+          "dependencies": []
+        }
+      },
+      {
+        "id": "stg_climb_activity",
+        "model": {
+          "name": "stg_climb_activity",
+          "filePath": "staging/stg_climb_activity.sqlx",
+          "type": "view",
+          "tags": [],
+          "description": "Cleaned and joined climbing activity data combining logs, climbs, and users",
+          "config": {
+            "type": "view",
+            "tags": [],
+            "description": "Cleaned and joined climbing activity data combining logs, climbs, and users"
+          },
+          "sqlContent": "\n\nSELECT \n  l.log_id,\n  l.user_id,\n  l.climb_id,\n  u.username,\n  u.location as user_location,\n  u.experience_level,\n  c.name as climb_name,\n  c.location as climb_location,\n  c.grade,\n  c.type as climb_type,\n  c.height_ft,\n  l.date as attempt_date,\n  l.success,\n  l.attempts,\n  CASE WHEN l.success THEN 1.0 ELSE 0.0 END as success_rate\nFROM `.raw_climb_logs` l\nJOIN `.raw_users` u ON l.user_id = u.user_id  \nJOIN `.raw_climbs` c ON l.climb_id = c.climb_id",
+          "dependencies": [
+            "raw_climb_logs",
+            "raw_users",
+            "raw_climbs"
+          ]
+        }
+      },
+      {
+        "id": "stg_climb_ratings",
+        "model": {
+          "name": "stg_climb_ratings",
+          "filePath": "staging/stg_climb_ratings.sqlx",
+          "type": "view",
+          "tags": [],
+          "description": "Aggregated climb ratings and comments from the community platform",
+          "config": {
+            "type": "view",
+            "tags": [],
+            "description": "Aggregated climb ratings and comments from the community platform"
+          },
+          "sqlContent": "\n\nSELECT \n  c.climb_id,\n  c.name as climb_name,\n  c.location as climb_location,\n  COUNT(cm.comment_id) as total_comments,\n  ROUND(AVG(cm.rating), 2) as avg_rating,\n  SUM(cm.rating) as total_rating_points,\n  MAX(cm.date) as latest_comment_date\nFROM `.raw_climbs` c\nLEFT JOIN `.raw_climb_comments` cm ON c.climb_id = cm.climb_id\nGROUP BY c.climb_id, c.name, c.location",
+          "dependencies": [
+            "raw_climbs",
+            "raw_climb_comments"
+          ]
+        }
+      }
+    ],
+    "edges": [
+      {
+        "source": "raw_climbs",
+        "target": "climb_master_table"
+      },
+      {
+        "source": "stg_climb_ratings",
+        "target": "climb_master_table"
+      },
+      {
+        "source": "stg_climb_activity",
+        "target": "climb_master_table"
+      },
+      {
+        "source": "stg_climb_activity",
+        "target": "daily_climb_counts"
+      },
+      {
+        "source": "stg_climb_activity",
+        "target": "user_climbing_summary"
+      },
+      {
+        "source": "raw_users",
+        "target": "user_climbing_summary"
+      },
+      {
+        "source": "raw_climb_logs",
+        "target": "stg_climb_activity"
+      },
+      {
+        "source": "raw_users",
+        "target": "stg_climb_activity"
+      },
+      {
+        "source": "raw_climbs",
+        "target": "stg_climb_activity"
+      },
+      {
+        "source": "raw_climbs",
+        "target": "stg_climb_ratings"
+      },
+      {
+        "source": "raw_climb_comments",
+        "target": "stg_climb_ratings"
+      }
+    ]
+  },
+  "metadata": {
+    "generatedAt": "2025-09-05T21:30:25.298Z",
+    "version": "1.0.0",
+    "projectPath": "/Users/jonahnakagawa/dataform_docs/climbing-db-demo"
+  }
+}

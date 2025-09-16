@@ -1,0 +1,372 @@
+{
+  "models": {
+    "climb_master_table": {
+      "columns": {
+        "climb_id": {
+          "type": "STRING",
+          "description": "Unique identifier for each climbing route"
+        },
+        "climb_name": {
+          "type": "STRING",
+          "description": "Name of the climbing route"
+        },
+        "climb_location": {
+          "type": "STRING",
+          "description": "Climbing area or crag location"
+        },
+        "grade": {
+          "type": "STRING",
+          "description": "Difficulty grade in YDS or V-scale format"
+        },
+        "climb_type": {
+          "type": "STRING",
+          "description": "Type of climbing (sport, trad, boulder, alpine)"
+        },
+        "height_ft": {
+          "type": "STRING",
+          "description": "Route height in feet (null for boulders)"
+        },
+        "total_comments": {
+          "type": "STRING",
+          "description": "Total number of community comments"
+        },
+        "avg_rating": {
+          "type": "STRING",
+          "description": "Average community star rating (1-5 scale)"
+        },
+        "total_attempts": {
+          "type": "STRING",
+          "description": "Total number of logged climbing attempts"
+        },
+        "unique_climbers": {
+          "type": "STRING",
+          "description": "Number of different users who attempted this climb"
+        },
+        "total_successful_attempts": {
+          "type": "STRING",
+          "description": "Number of successful attempts"
+        },
+        "overall_success_rate": {
+          "type": "STRING",
+          "description": "Overall success rate as percentage (0-100)"
+        },
+        "avg_attempts_per_session": {
+          "type": "STRING",
+          "description": "Average attempts needed per climbing session"
+        },
+        "popularity_score": {
+          "type": "STRING",
+          "description": "Popularity metric based on attempts and ratings"
+        },
+        "last_activity_date": {
+          "type": "STRING",
+          "description": "Date of most recent climbing attempt"
+        }
+      }
+    },
+    "daily_climb_counts": {
+      "columns": {
+        "user_id": {
+          "type": "STRING",
+          "description": "Foreign key to users table"
+        },
+        "username": {
+          "type": "STRING",
+          "description": "User's display name"
+        },
+        "activity_date": {
+          "type": "STRING",
+          "description": "Date of climbing activity"
+        },
+        "total_attempts": {
+          "type": "STRING",
+          "description": "Total number of climbing attempts on this date"
+        },
+        "unique_climbs": {
+          "type": "STRING",
+          "description": "Number of unique routes attempted on this date"
+        },
+        "successful_attempts": {
+          "type": "STRING",
+          "description": "Number of successful climbing attempts"
+        },
+        "failed_attempts": {
+          "type": "STRING",
+          "description": "Number of failed climbing attempts"
+        },
+        "success_rate": {
+          "type": "STRING",
+          "description": "Success rate as a percentage (0-100)"
+        },
+        "avg_attempts_per_climb": {
+          "type": "STRING",
+          "description": "Average number of attempts per route"
+        }
+      }
+    },
+    "user_climbing_summary": {
+      "columns": {
+        "user_id": {
+          "type": "STRING",
+          "description": "Unique identifier for each user"
+        },
+        "username": {
+          "type": "STRING",
+          "description": "User's display name"
+        },
+        "user_location": {
+          "type": "STRING",
+          "description": "User's home location"
+        },
+        "experience_level": {
+          "type": "STRING",
+          "description": "Self-reported climbing experience level"
+        },
+        "total_climbing_days": {
+          "type": "STRING",
+          "description": "Number of different dates with climbing activity"
+        },
+        "total_attempts": {
+          "type": "STRING",
+          "description": "Total number of climbing attempts across all routes"
+        },
+        "total_unique_climbs": {
+          "type": "STRING",
+          "description": "Number of different routes attempted"
+        },
+        "total_successful_attempts": {
+          "type": "STRING",
+          "description": "Number of successful climbing attempts"
+        },
+        "overall_success_rate": {
+          "type": "STRING",
+          "description": "Overall success rate as percentage (0-100)"
+        },
+        "avg_attempts_per_climb": {
+          "type": "STRING",
+          "description": "Average attempts needed per route"
+        },
+        "first_activity_date": {
+          "type": "STRING",
+          "description": "Date of first logged climbing activity"
+        },
+        "last_activity_date": {
+          "type": "STRING",
+          "description": "Date of most recent climbing activity"
+        },
+        "days_since_last_activity": {
+          "type": "STRING",
+          "description": "Number of days since last climbing session"
+        },
+        "most_active_month": {
+          "type": "STRING",
+          "description": "Month with highest climbing activity"
+        },
+        "favorite_climb_type": {
+          "type": "STRING",
+          "description": "Most frequently attempted climbing type"
+        }
+      }
+    },
+    "raw_climb_comments": {
+      "columns": {
+        "comment_id": {
+          "type": "STRING",
+          "description": "Unique identifier for each comment"
+        },
+        "user_id": {
+          "type": "STRING",
+          "description": "Foreign key to users table - who made the comment"
+        },
+        "climb_id": {
+          "type": "STRING",
+          "description": "Foreign key to climbs table - which route was commented on"
+        },
+        "rating": {
+          "type": "STRING",
+          "description": "Star rating from 1-5 for route quality"
+        },
+        "comment_text": {
+          "type": "STRING",
+          "description": "Text content of the user's review/beta"
+        },
+        "date": {
+          "type": "STRING",
+          "description": "Date when comment was posted"
+        }
+      }
+    },
+    "raw_climb_logs": {
+      "columns": {
+        "log_id": {
+          "type": "STRING",
+          "description": "Unique identifier for each climbing attempt"
+        },
+        "user_id": {
+          "type": "STRING",
+          "description": "Foreign key to users table"
+        },
+        "climb_id": {
+          "type": "STRING",
+          "description": "Foreign key to climbs table"
+        },
+        "date": {
+          "type": "STRING",
+          "description": "Date of the climbing attempt"
+        },
+        "success": {
+          "type": "STRING",
+          "description": "Boolean indicating if the attempt was successful"
+        },
+        "attempts": {
+          "type": "STRING",
+          "description": "Number of attempts made on this route during the session"
+        }
+      }
+    },
+    "raw_climbs": {
+      "columns": {
+        "climb_id": {
+          "type": "STRING",
+          "description": "Unique identifier for each climb route"
+        },
+        "name": {
+          "type": "STRING",
+          "description": "Name of the climbing route"
+        },
+        "location": {
+          "type": "STRING",
+          "description": "Climbing area or crag location"
+        },
+        "grade": {
+          "type": "STRING",
+          "description": "Difficulty grade in YDS or V-scale format"
+        },
+        "type": {
+          "type": "STRING",
+          "description": "Type of climbing (sport, trad, boulder, alpine)"
+        },
+        "height_ft": {
+          "type": "STRING",
+          "description": "Route height in feet (null for boulders)"
+        }
+      }
+    },
+    "raw_users": {
+      "columns": {
+        "user_id": {
+          "type": "STRING",
+          "description": "Unique identifier for each user"
+        },
+        "username": {
+          "type": "STRING",
+          "description": "User's chosen display name"
+        },
+        "location": {
+          "type": "STRING",
+          "description": "User's home city/region"
+        },
+        "experience_level": {
+          "type": "STRING",
+          "description": "Self-reported climbing experience (beginner, intermediate, advanced, expert)"
+        }
+      }
+    },
+    "stg_climb_activity": {
+      "columns": {
+        "log_id": {
+          "type": "STRING",
+          "description": "Unique identifier for each climbing attempt"
+        },
+        "user_id": {
+          "type": "STRING",
+          "description": "Foreign key to users table"
+        },
+        "climb_id": {
+          "type": "STRING",
+          "description": "Foreign key to climbs table"
+        },
+        "username": {
+          "type": "STRING",
+          "description": "User's display name"
+        },
+        "user_location": {
+          "type": "STRING",
+          "description": "User's home location"
+        },
+        "experience_level": {
+          "type": "STRING",
+          "description": "User's self-reported climbing experience"
+        },
+        "climb_name": {
+          "type": "STRING",
+          "description": "Name of the climbing route"
+        },
+        "climb_location": {
+          "type": "STRING",
+          "description": "Climbing area or crag location"
+        },
+        "grade": {
+          "type": "STRING",
+          "description": "Difficulty grade"
+        },
+        "climb_type": {
+          "type": "STRING",
+          "description": "Type of climbing (sport, trad, boulder, alpine)"
+        },
+        "height_ft": {
+          "type": "STRING",
+          "description": "Route height in feet"
+        },
+        "attempt_date": {
+          "type": "STRING",
+          "description": "Date of the climbing attempt"
+        },
+        "success": {
+          "type": "STRING",
+          "description": "Boolean indicating if the attempt was successful"
+        },
+        "attempts": {
+          "type": "STRING",
+          "description": "Number of attempts made during the session"
+        },
+        "success_rate": {
+          "type": "STRING",
+          "description": "Success rate for this specific attempt (1.0 or 0.0)"
+        }
+      }
+    },
+    "stg_climb_ratings": {
+      "columns": {
+        "climb_id": {
+          "type": "STRING",
+          "description": "Foreign key to climbs table"
+        },
+        "climb_name": {
+          "type": "STRING",
+          "description": "Name of the climbing route"
+        },
+        "climb_location": {
+          "type": "STRING",
+          "description": "Climbing area or crag location"
+        },
+        "total_comments": {
+          "type": "STRING",
+          "description": "Total number of comments for this climb"
+        },
+        "avg_rating": {
+          "type": "STRING",
+          "description": "Average star rating (1-5 scale)"
+        },
+        "total_rating_points": {
+          "type": "STRING",
+          "description": "Sum of all ratings for this climb"
+        },
+        "latest_comment_date": {
+          "type": "STRING",
+          "description": "Date of the most recent comment"
+        }
+      }
+    }
+  }
+}
