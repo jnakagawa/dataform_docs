@@ -56,17 +56,26 @@ export async function serveCommand(options: ServeOptions) {
     // Helper function to inject base path into HTML
     const getIndexHtmlWithBasePath = async (): Promise<string> => {
       const indexPath = path.join(servePath, 'index.html');
-      const html = await fs.readFile(indexPath, 'utf8');
+      let html = await fs.readFile(indexPath, 'utf8');
 
       if (!normalizedBasePath) {
         return html;
       }
 
       // Inject base path into HTML
-      return html.replace(
+      html = html.replace(
         '<head>',
         `<head><script>window.__BASE_PATH__ = "${normalizedBasePath}";</script>`
       );
+
+      // Fix relative asset paths to work with base path
+      // Convert ./assets/ to ./dataform/docs/assets/ (for example)
+      const basePath = normalizedBasePath.endsWith('/') ? normalizedBasePath.slice(0, -1) : normalizedBasePath;
+      html = html.replace(/src="\.\/assets\//g, `src="${basePath}/assets/`);
+      html = html.replace(/href="\.\/assets\//g, `href="${basePath}/assets/`);
+      html = html.replace(/href="\/favicon\.svg"/g, `href="${basePath}/favicon.svg"`);
+
+      return html;
     };
 
     // Handle base path root specifically to inject base path
