@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Layers, BarChart3, Clock, AlertCircle } from 'lucide-react';
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
 import DependencyGraph from './components/DependencyGraph';
@@ -9,15 +10,19 @@ import { DataLoader } from './utils/data-loader';
 import { Manifest, Catalog } from './types';
 
 // URL state management utilities
-const parseUrlState = () => {
-  const hash = window.location.hash;
-  const urlParams = new URLSearchParams(window.location.search);
+const parseUrlState = (location: any) => {
+  const hash = location.hash;
+  const urlParams = new URLSearchParams(location.search);
 
   let selectedModel: string | null = null;
   let viewMode: 'isolated' | 'full' = 'full';
 
-  // Parse hash for model selection: #/model/modelName
-  if (hash.startsWith('#/model/')) {
+  // Parse path for model selection: /model/modelName
+  if (location.pathname.startsWith('/model/')) {
+    selectedModel = decodeURIComponent(location.pathname.slice(7));
+  }
+  // Also support legacy hash format: #/model/modelName
+  else if (hash.startsWith('#/model/')) {
     selectedModel = decodeURIComponent(hash.slice(8));
   }
 
@@ -35,47 +40,44 @@ const parseUrlState = () => {
   };
 };
 
-const updateUrl = (state: {
+const buildUrl = (state: {
   selectedModel?: string | null;
   viewMode?: 'isolated' | 'full';
   searchTerm?: string;
   filterType?: string;
   filterTag?: string;
 }) => {
-  const url = new URL(window.location.href);
+  let path = '/';
 
-  // Update hash for model selection
+  // Set path for model selection
   if (state.selectedModel) {
-    url.hash = `#/model/${encodeURIComponent(state.selectedModel)}`;
-  } else {
-    url.hash = '';
+    path = `/model/${encodeURIComponent(state.selectedModel)}`;
   }
 
-  // Update query params
-  url.searchParams.delete('view');
-  url.searchParams.delete('search');
-  url.searchParams.delete('type');
-  url.searchParams.delete('tag');
-
+  // Build query params
+  const params = new URLSearchParams();
   if (state.viewMode === 'isolated') {
-    url.searchParams.set('view', 'isolated');
+    params.set('view', 'isolated');
   }
   if (state.searchTerm) {
-    url.searchParams.set('search', state.searchTerm);
+    params.set('search', state.searchTerm);
   }
   if (state.filterType) {
-    url.searchParams.set('type', state.filterType);
+    params.set('type', state.filterType);
   }
   if (state.filterTag) {
-    url.searchParams.set('tag', state.filterTag);
+    params.set('tag', state.filterTag);
   }
 
-  // Use replaceState to avoid creating too many history entries
-  window.history.replaceState(null, '', url.toString());
+  const queryString = params.toString();
+  return queryString ? `${path}?${queryString}` : path;
 };
 
 
 function App() {
+  const navigate = useNavigate();
+  const location = useLocation();
+
   const [manifest, setManifest] = useState<Manifest | null>(null);
   const [catalog, setCatalog] = useState<Catalog | null>(null);
   const [selectedModel, setSelectedModel] = useState<string | null>(null);
@@ -93,9 +95,9 @@ function App() {
 
   const dataLoader = new DataLoader();
 
-  // Initialize state from URL on mount
+  // Initialize state from URL on mount and when location changes
   useEffect(() => {
-    const urlState = parseUrlState();
+    const urlState = parseUrlState(location);
     const hasDeepLink = !!(urlState.selectedModel || urlState.searchTerm || urlState.filterType || urlState.filterTag);
 
     setSelectedModel(urlState.selectedModel);
@@ -104,22 +106,7 @@ function App() {
     setFilterType(urlState.filterType);
     setFilterTag(urlState.filterTag);
     setIsDeepLink(hasDeepLink);
-  }, []);
-
-  // Listen for browser back/forward navigation
-  useEffect(() => {
-    const handlePopstate = () => {
-      const urlState = parseUrlState();
-      setSelectedModel(urlState.selectedModel);
-      setIsolatedModel(urlState.viewMode === 'isolated' ? urlState.selectedModel : null);
-      setSearchTerm(urlState.searchTerm);
-      setFilterType(urlState.filterType);
-      setFilterTag(urlState.filterTag);
-    };
-
-    window.addEventListener('popstate', handlePopstate);
-    return () => window.removeEventListener('popstate', handlePopstate);
-  }, []);
+  }, [location]);
 
   useEffect(() => {
     loadData();
@@ -146,65 +133,70 @@ function App() {
     setIsDeepLink(false); // Reset deep link flag for user interactions
 
     // Update URL with isolated view
-    updateUrl({
+    const newUrl = buildUrl({
       selectedModel: modelName,
       viewMode: 'isolated',
       searchTerm,
       filterType,
       filterTag,
     });
+    navigate(newUrl, { replace: true });
   };
 
   const handleClearIsolation = () => {
     setIsolatedModel(null);
 
     // Update URL to show full view while keeping model selected
-    updateUrl({
+    const newUrl = buildUrl({
       selectedModel,
       viewMode: 'full',
       searchTerm,
       filterType,
       filterTag,
     });
+    navigate(newUrl, { replace: true });
   };
 
   const handleSearchChange = (term: string) => {
     setSearchTerm(term);
 
     // Update URL with search term
-    updateUrl({
+    const newUrl = buildUrl({
       selectedModel,
       viewMode: isolatedModel ? 'isolated' : 'full',
       searchTerm: term,
       filterType,
       filterTag,
     });
+    navigate(newUrl, { replace: true });
   };
 
   const handleTypeFilter = (type: string) => {
     setFilterType(type);
 
     // Update URL with type filter
-    updateUrl({
+    const newUrl = buildUrl({
       selectedModel,
       viewMode: isolatedModel ? 'isolated' : 'full',
       searchTerm,
       filterType: type,
       filterTag,
     });
+    navigate(newUrl, { replace: true });
   };
 
   const handleTagFilter = (tag: string) => {
     setFilterTag(tag);
 
     // Update URL with tag filter
-    updateUrl({
+    const newUrl = buildUrl({
       selectedModel,
       viewMode: isolatedModel ? 'isolated' : 'full',
       searchTerm,
       filterType,
       filterTag: tag,
     });
+    navigate(newUrl, { replace: true });
   };
 
   const handleClearFilters = () => {
@@ -213,13 +205,14 @@ function App() {
     setFilterTag('');
 
     // Update URL with cleared filters
-    updateUrl({
+    const newUrl = buildUrl({
       selectedModel,
       viewMode: isolatedModel ? 'isolated' : 'full',
       searchTerm: '',
       filterType: '',
       filterTag: '',
     });
+    navigate(newUrl, { replace: true });
   };
 
   if (loading) {

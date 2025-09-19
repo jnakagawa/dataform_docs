@@ -4,10 +4,12 @@ Generate beautiful, interactive documentation for your Dataform projects with de
 
 ## Features
 
-✨ **Interactive Dependency Graph** - Visualize your entire data pipeline with hierarchical DAG layout  
-🔍 **Pipeline Isolation** - Focus on specific models and their dependencies  
-🎯 **Auto-zoom** - Automatically zoom to isolated pipelines for better visibility  
-📊 **Column Definitions** - View table schemas and column descriptions  
+✨ **Interactive Dependency Graph** - Visualize your entire data pipeline with hierarchical DAG layout
+🔍 **Pipeline Isolation** - Focus on specific models and their dependencies
+🎯 **Auto-zoom** - Automatically zoom to isolated pipelines for better visibility
+📊 **Column Definitions** - View table schemas and column descriptions
+🔗 **Deep Linking** - Share direct links to specific models with full URL state management
+🌐 **Base Path Support** - Deploy under custom paths for proxy/subdirectory hosting
 🚀 **Fast & Static** - Generates self-contained HTML that can be hosted anywhere
 
 ## Demo
@@ -75,9 +77,10 @@ Add to your `package.json` scripts:
 dataform-docs generate [options]
 
 Options:
-  -p, --project <path>  Path to Dataform project (default: current directory)
-  -o, --output <path>   Output directory for documentation (default: ./dataform-docs)
-  -c, --config <path>   Path to dataform.json config file
+  -p, --project <path>    Path to Dataform project (default: current directory)
+  -o, --output <path>     Output directory for documentation (default: ./dataform-docs)
+  -b, --base-path <path>  Base path for serving the documentation (e.g., /dataform/docs/)
+  --no-compile            Skip SQL compilation
 ```
 
 ### Serve Documentation
@@ -86,17 +89,52 @@ Options:
 dataform-docs serve [options]
 
 Options:
-  -d, --docs <path>     Path to generated docs (default: ./dataform-docs)
-  --port <number>       Port number (default: 4200)
-  --host <string>       Host address (default: localhost)
-  --no-open            Don't open browser automatically
+  -p, --port <number>     Port to serve on (default: 4200)
+  -d, --dir <path>        Directory to serve (default: ./dataform-docs)
+  -b, --base-path <path>  Base path for routing (e.g., /dataform/docs/)
+  --open                  Open browser automatically
+```
+
+## Base Path Support
+
+Use base paths when deploying under custom URL paths or proxy configurations:
+
+### Local Development with Base Path
+```bash
+# Generate with base path
+dataform-docs generate -b /my-project/docs/
+
+# Serve with base path
+dataform-docs serve -b /my-project/docs/
+# Opens http://localhost:4200/my-project/docs/
+```
+
+### Common Deployment Scenarios
+
+#### GitHub Pages with Project Path
+```bash
+# For https://username.github.io/project-name/dataform/
+dataform-docs generate -o ./docs -b /project-name/dataform/
+```
+
+#### Proxy/Subdirectory Hosting
+```bash
+# For https://company.com/internal/dataform-docs/
+dataform-docs generate -b /internal/dataform-docs/
+dataform-docs serve -b /internal/dataform-docs/
+```
+
+#### Docker/Kubernetes with Ingress
+```bash
+# For ingress path /api/v1/dataform/
+dataform-docs generate -b /api/v1/dataform/
 ```
 
 ## Deploy to GitHub Pages
 
 ```bash
-# Generate docs
-dataform-docs generate -o ./docs
+# Generate docs with GitHub Pages base path
+dataform-docs generate -o ./docs -b /your-repo-name/
 
 # Commit and push
 git add docs
