@@ -106,25 +106,18 @@ export async function serveCommand(options: ServeOptions) {
       app.use(express.static(servePath));
     }
 
-    // SPA fallback - serve index.html for any unmatched routes
+    // SPA fallback - serve index.html for any unmatched routes (but not for file requests)
     app.get('*', async (req, res) => {
       try {
-        // For API routes, serve JSON files directly
-        if (req.path.endsWith('.json')) {
-          const jsonPath = normalizedBasePath
-            ? req.path.replace(normalizedBasePath, '')
-            : req.path;
-          const filePath = path.join(servePath, jsonPath);
+        // Check if this is a file request (has file extension)
+        const hasFileExtension = path.extname(req.path) !== '';
 
-          try {
-            await fs.access(filePath);
-            return res.sendFile(filePath);
-          } catch {
-            // File not found, continue to SPA fallback
-          }
+        if (hasFileExtension) {
+          // For file requests that weren't caught by static middleware, return 404
+          return res.status(404).send('File not found');
         }
 
-        // For SPA routes, serve index.html with base path
+        // For SPA routes (no file extension), serve index.html with base path
         const html = await getIndexHtmlWithBasePath();
         res.send(html);
       } catch (error) {

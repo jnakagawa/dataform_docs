@@ -12,7 +12,7 @@ const program = new commander_1.Command();
 program
     .name('dataform-docs')
     .description('Beautiful documentation generator for Dataform projects')
-    .version('1.0.0');
+    .version('1.4.0');
 program
     .command('generate')
     .description('Generate documentation for a Dataform project')
@@ -26,6 +26,7 @@ program
     .description('Serve the generated documentation')
     .option('-p, --port <number>', 'Port to serve on', '4200')
     .option('-d, --dir <path>', 'Directory to serve', './dataform-docs')
+    .option('-b, --base-path <path>', 'Base path for routing (e.g., /dataform/docs/)')
     .option('--open', 'Open browser automatically')
     .action(serve_1.serveCommand);
 program.parse();
