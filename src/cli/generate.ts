@@ -153,11 +153,13 @@ async function buildAndCopySite(siteGeneratorPath: string, outputPath: string, b
   console.log(chalk.gray('   Building React site...'));
   
   try {
-    // Set environment variable for base path before building
+    // Set environment variables for base path before building
     const env = { ...process.env };
     if (basePath) {
-      env.VITE_BASE_PATH = normalizeBasePath(basePath);
-      console.log(chalk.gray(`   Using base path: ${env.VITE_BASE_PATH}`));
+      const normalizedPath = normalizeBasePath(basePath);
+      env.VITE_BASE_PATH = normalizedPath;
+      env.PUBLIC_URL = normalizedPath;
+      console.log(chalk.gray(`   Using base path: ${normalizedPath}`));
     }
     
     // Build the React app
@@ -167,17 +169,34 @@ async function buildAndCopySite(siteGeneratorPath: string, outputPath: string, b
     const siteDistPath = path.join(siteGeneratorPath, 'dist');
     const files = await fs.readdir(siteDistPath, { recursive: true });
     console.log(chalk.gray(`   Found ${files.length} built files/dirs`));
-    
+
     for (const file of files) {
       if (typeof file === 'string') {
         const srcPath = path.join(siteDistPath, file);
         const destPath = path.join(outputPath, file);
-        
+
         const stat = await fs.stat(srcPath);
         if (stat.isFile()) {
           // Ensure destination directory exists
           await fs.mkdir(path.dirname(destPath), { recursive: true });
-          await fs.copyFile(srcPath, destPath);
+
+          // For HTML files, inject base path if needed
+          if (file === 'index.html' && basePath) {
+            const normalizedPath = normalizeBasePath(basePath);
+            let html = await fs.readFile(srcPath, 'utf8');
+
+            // Inject base path into HTML if not already present
+            if (!html.includes('window.__BASE_PATH__')) {
+              html = html.replace(
+                '<head>',
+                `<head><script>window.__BASE_PATH__ = "${normalizedPath}";</script>`
+              );
+            }
+
+            await fs.writeFile(destPath, html);
+          } else {
+            await fs.copyFile(srcPath, destPath);
+          }
         }
       }
     }
@@ -200,7 +219,8 @@ async function createPlaceholderSite(outputPath: string, basePath?: string) {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Dataform Documentation</title>
-  
+  ${normalizedBasePath ? `<script>window.__BASE_PATH__ = "${normalizedBasePath}";</script>` : ''}
+
   <!-- Open Graph meta tags for social media sharing -->
   <meta property="og:title" content="Dataform Documentation" />
   <meta property="og:description" content="Interactive documentation for your Dataform projects with dependency graphs, pipeline isolation, and auto-zoom functionality." />

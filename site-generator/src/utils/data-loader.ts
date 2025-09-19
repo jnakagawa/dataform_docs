@@ -4,13 +4,37 @@ export class DataLoader {
   private manifest: Manifest | null = null;
   private catalog: Catalog | null = null;
 
+  private getBasePath(): string {
+    // Get base path from environment variable or window object
+    const basePath = import.meta.env.VITE_BASE_PATH || (window as any).__BASE_PATH__ || '';
+    // Remove trailing slash for consistency
+    return basePath.endsWith('/') ? basePath.slice(0, -1) : basePath;
+  }
+
+  private getAssetUrl(filename: string): string {
+    const basePath = this.getBasePath();
+
+    // Handle both relative and absolute base paths
+    if (basePath.startsWith('http')) {
+      // Absolute URL base path
+      return `${basePath}/${filename}`;
+    } else if (basePath) {
+      // Relative base path
+      return `${basePath}/${filename}`;
+    } else {
+      // No base path
+      return `./${filename}`;
+    }
+  }
+
   async loadManifest(): Promise<Manifest> {
     if (this.manifest) {
       return this.manifest;
     }
 
     try {
-      const response = await fetch('./manifest.json');
+      const url = this.getAssetUrl('manifest.json');
+      const response = await fetch(url);
       if (!response.ok) {
         throw new Error(`Failed to load manifest: ${response.statusText}`);
       }
@@ -28,7 +52,8 @@ export class DataLoader {
     }
 
     try {
-      const response = await fetch('./catalog.json');
+      const url = this.getAssetUrl('catalog.json');
+      const response = await fetch(url);
       if (!response.ok) {
         throw new Error(`Failed to load catalog: ${response.statusText}`);
       }

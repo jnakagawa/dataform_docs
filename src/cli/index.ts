@@ -26,6 +26,7 @@ program
   .description('Serve the generated documentation')
   .option('-p, --port <number>', 'Port to serve on', '4200')
   .option('-d, --dir <path>', 'Directory to serve', './dataform-docs')
+  .option('-b, --base-path <path>', 'Base path for routing (e.g., /dataform/docs/)')
   .option('--open', 'Open browser automatically')
   .action(serveCommand);
 
