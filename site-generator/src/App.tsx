@@ -11,25 +11,61 @@ import { Manifest, Catalog } from './types';
 
 // URL state management utilities
 const parseUrlState = (location: any) => {
-  const hash = location.hash;
+  // Use window.location.hash to get the actual browser hash
+  const windowHash = window.location.hash;
   const urlParams = new URLSearchParams(location.search);
 
   let selectedModel: string | null = null;
   let viewMode: 'isolated' | 'full' = 'full';
 
-  // Parse path for model selection: /model/modelName
-  if (location.pathname.startsWith('/model/')) {
-    selectedModel = decodeURIComponent(location.pathname.slice(7));
+  // Parse hash-based routing first (for static file serving)
+  if (windowHash.startsWith('#/model/')) {
+    // Extract model name from hash route
+    const hashPath = windowHash.slice(1); // Remove #
+    const parts = hashPath.split('?'); // Split path from query params
+    const path = parts[0];
+
+    if (path.startsWith('/model/')) {
+      selectedModel = decodeURIComponent(path.slice(7));
+      // Default to isolated view for model deep links
+      viewMode = 'isolated';
+    }
+
+    // Parse query params from hash route
+    if (parts[1]) {
+      const hashParams = new URLSearchParams(parts[1]);
+      const viewParam = hashParams.get('view');
+      if (viewParam === 'full') {
+        viewMode = 'full';
+      } else if (viewParam === 'isolated') {
+        viewMode = 'isolated';
+      }
+      // If selectedModel exists but no view param specified, keep default 'isolated'
+
+      return {
+        selectedModel,
+        viewMode,
+        searchTerm: hashParams.get('search') || '',
+        filterType: hashParams.get('type') || '',
+        filterTag: hashParams.get('tag') || '',
+      };
+    }
   }
-  // Also support legacy hash format: #/model/modelName
-  else if (hash.startsWith('#/model/')) {
-    selectedModel = decodeURIComponent(hash.slice(8));
+  // Fall back to pathname-based routing (for proper web servers)
+  else if (location.pathname.startsWith('/model/')) {
+    selectedModel = decodeURIComponent(location.pathname.slice(7));
+    // Default to isolated view for model deep links
+    viewMode = 'isolated';
   }
 
   // Parse query params for additional state
-  if (urlParams.get('view') === 'isolated') {
+  const viewParam = urlParams.get('view');
+  if (viewParam === 'full') {
+    viewMode = 'full';
+  } else if (viewParam === 'isolated') {
     viewMode = 'isolated';
   }
+  // If selectedModel exists but no view param specified, keep default 'isolated'
 
   return {
     selectedModel,
@@ -47,6 +83,9 @@ const buildUrl = (state: {
   filterType?: string;
   filterTag?: string;
 }) => {
+  // Auto-detect if we're using hash routing by checking current location
+  const isHashRouting = window.location.hash.startsWith('#/');
+
   let path = '/';
 
   // Set path for model selection
@@ -70,7 +109,14 @@ const buildUrl = (state: {
   }
 
   const queryString = params.toString();
-  return queryString ? `${path}?${queryString}` : path;
+  const fullPath = queryString ? `${path}?${queryString}` : path;
+
+  // If we're in hash routing mode, return hash-based URL
+  if (isHashRouting) {
+    return `#${fullPath}`;
+  }
+
+  return fullPath;
 };
 
 
@@ -82,6 +128,7 @@ function App() {
   const [catalog, setCatalog] = useState<Catalog | null>(null);
   const [selectedModel, setSelectedModel] = useState<string | null>(null);
   const [isolatedModel, setIsolatedModel] = useState<string | null>(null);
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -95,17 +142,59 @@ function App() {
 
   const dataLoader = new DataLoader();
 
+  // Smart navigation that handles both hash and pathname routing
+  const navigateToUrl = (url: string, options?: { replace?: boolean }) => {
+    if (url.startsWith('#')) {
+      // For hash-based URLs, update the hash directly
+      if (options?.replace) {
+        window.location.replace(url);
+      } else {
+        window.location.hash = url.substring(1);
+      }
+    } else {
+      // For pathname URLs, use React Router
+      navigate(url, options);
+    }
+  };
+
   // Initialize state from URL on mount and when location changes
   useEffect(() => {
     const urlState = parseUrlState(location);
     const hasDeepLink = !!(urlState.selectedModel || urlState.searchTerm || urlState.filterType || urlState.filterTag);
 
     setSelectedModel(urlState.selectedModel);
-    setIsolatedModel(urlState.viewMode === 'isolated' ? urlState.selectedModel : null);
+    // If there's a selected model from URL (deep link), isolate it by default unless explicitly set to 'full'
+    if (urlState.selectedModel) {
+      const shouldIsolate = urlState.viewMode !== 'full';
+      const isolatedModelValue = shouldIsolate ? urlState.selectedModel : null;
+      setIsolatedModel(isolatedModelValue);
+    } else {
+      setIsolatedModel(urlState.viewMode === 'isolated' ? urlState.selectedModel : null);
+    }
     setSearchTerm(urlState.searchTerm);
     setFilterType(urlState.filterType);
     setFilterTag(urlState.filterTag);
     setIsDeepLink(hasDeepLink);
+  }, [location]);
+
+  // Listen for hash changes (important for hash-based routing)
+  useEffect(() => {
+    const handleHashChange = () => {
+      const urlState = parseUrlState(location);
+      setSelectedModel(urlState.selectedModel);
+      // If there's a selected model from URL (deep link), isolate it by default unless explicitly set to 'full'
+      if (urlState.selectedModel) {
+        setIsolatedModel(urlState.viewMode === 'full' ? null : urlState.selectedModel);
+      } else {
+        setIsolatedModel(urlState.viewMode === 'isolated' ? urlState.selectedModel : null);
+      }
+      setSearchTerm(urlState.searchTerm);
+      setFilterType(urlState.filterType);
+      setFilterTag(urlState.filterTag);
+    };
+
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
   }, [location]);
 
   useEffect(() => {
@@ -140,7 +229,7 @@ function App() {
       filterType,
       filterTag,
     });
-    navigate(newUrl, { replace: true });
+    navigateToUrl(newUrl, { replace: true });
   };
 
   const handleClearIsolation = () => {
@@ -154,7 +243,7 @@ function App() {
       filterType,
       filterTag,
     });
-    navigate(newUrl, { replace: true });
+    navigateToUrl(newUrl, { replace: true });
   };
 
   const handleSearchChange = (term: string) => {
@@ -168,7 +257,7 @@ function App() {
       filterType,
       filterTag,
     });
-    navigate(newUrl, { replace: true });
+    navigateToUrl(newUrl, { replace: true });
   };
 
   const handleTypeFilter = (type: string) => {
@@ -182,7 +271,7 @@ function App() {
       filterType: type,
       filterTag,
     });
-    navigate(newUrl, { replace: true });
+    navigateToUrl(newUrl, { replace: true });
   };
 
   const handleTagFilter = (tag: string) => {
@@ -196,7 +285,7 @@ function App() {
       filterType,
       filterTag: tag,
     });
-    navigate(newUrl, { replace: true });
+    navigateToUrl(newUrl, { replace: true });
   };
 
   const handleClearFilters = () => {
@@ -212,7 +301,7 @@ function App() {
       filterType: '',
       filterTag: '',
     });
-    navigate(newUrl, { replace: true });
+    navigateToUrl(newUrl, { replace: true });
   };
 
   if (loading) {
