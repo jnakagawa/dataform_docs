@@ -1,6 +1,6 @@
 {
   "name": "dataform-docs",
-  "version": "1.4.1",
+  "version": "1.5.0",
   "description": "Generate beautiful, interactive documentation for Dataform projects with dependency graphs, deep linking, and base path support for proxy deployments",
   "main": "dist/cli/index.js",
   "bin": {
@@ -48,6 +48,7 @@
     "express": "^4.18.2",
     "glob": "^10.3.0",
     "open": "^9.1.0",
+    "playwright": "^1.55.1",
     "puppeteer": "^24.19.0"
   },
   "devDependencies": {
