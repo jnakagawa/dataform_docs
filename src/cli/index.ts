@@ -10,7 +10,7 @@ const program = new Command();
 program
   .name('dataform-docs')
   .description('Beautiful documentation generator for Dataform projects')
-  .version('1.4.0');
+  .version('1.5.2');
 
 program
   .command('generate')

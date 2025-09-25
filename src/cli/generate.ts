@@ -104,24 +104,27 @@ export async function generateCommand(options: GenerateOptions) {
 
 async function copySiteFiles(outputPath: string, basePath?: string) {
   // First try to find pre-built site files
+  // When running from compiled dist/, look for src/site relative to package root
+  // When running from dev, look for dist/site
   const distSitePath = path.join(__dirname, '../site');
+  const srcSitePath = path.join(__dirname, '../../src/site');
   const siteGeneratorPath = path.join(__dirname, '../../site-generator');
   
   console.log(chalk.gray(`   Looking for site files at: ${distSitePath}`));
-  
+
   try {
     // Check if pre-built site exists in dist/site
     await fs.access(distSitePath);
-    
+
     // Copy all files from site to output directory
     const files = await fs.readdir(distSitePath, { recursive: true });
     console.log(chalk.gray(`   Found ${files.length} files/dirs`));
-    
+
     for (const file of files) {
       if (typeof file === 'string') {
         const srcPath = path.join(distSitePath, file);
         const destPath = path.join(outputPath, file);
-        
+
         const stat = await fs.stat(srcPath);
         if (stat.isFile()) {
           // Ensure destination directory exists
@@ -131,16 +134,41 @@ async function copySiteFiles(outputPath: string, basePath?: string) {
       }
     }
   } catch {
-    // Try to build and copy from site-generator directory
-    console.log(chalk.gray(`   Site files not found in dist, checking site-generator...`));
-    
+    // Try src/site (for npm package)
+    console.log(chalk.gray(`   Site files not found in dist, trying src...`));
+
     try {
-      await fs.access(siteGeneratorPath);
-      await buildAndCopySite(siteGeneratorPath, outputPath, basePath);
+      await fs.access(srcSitePath);
+
+      // Copy all files from src/site to output directory
+      const files = await fs.readdir(srcSitePath, { recursive: true });
+      console.log(chalk.gray(`   Found ${files.length} files/dirs in src`));
+
+      for (const file of files) {
+        if (typeof file === 'string') {
+          const srcPath = path.join(srcSitePath, file);
+          const destPath = path.join(outputPath, file);
+
+          const stat = await fs.stat(srcPath);
+          if (stat.isFile()) {
+            // Ensure destination directory exists
+            await fs.mkdir(path.dirname(destPath), { recursive: true });
+            await fs.copyFile(srcPath, destPath);
+          }
+        }
+      }
     } catch {
-      // If neither exists, create a simple placeholder
-      console.log(chalk.yellow('   Site files not found, creating placeholder...'));
-      await createPlaceholderSite(outputPath, basePath);
+      // Try to build and copy from site-generator directory
+      console.log(chalk.gray(`   Site files not found in dist, checking site-generator...`));
+
+      try {
+        await fs.access(siteGeneratorPath);
+        await buildAndCopySite(siteGeneratorPath, outputPath, basePath);
+      } catch {
+        // If neither exists, create a simple placeholder
+        console.log(chalk.yellow('   Site files not found, creating placeholder...'));
+        await createPlaceholderSite(outputPath, basePath);
+      }
     }
   }
 }

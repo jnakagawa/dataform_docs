@@ -12,7 +12,7 @@ const program = new commander_1.Command();
 program
     .name('dataform-docs')
     .description('Beautiful documentation generator for Dataform projects')
-    .version('1.4.0');
+    .version('1.5.2');
 program
     .command('generate')
     .description('Generate documentation for a Dataform project')

@@ -1,14 +1,15 @@
 {
   "name": "dataform-docs",
-  "version": "1.5.0",
+  "version": "1.5.2",
   "description": "Generate beautiful, interactive documentation for Dataform projects with dependency graphs, deep linking, and base path support for proxy deployments",
   "main": "dist/cli/index.js",
   "bin": {
     "dataform-docs": "./dist/cli/index.js"
   },
   "scripts": {
-    "build": "node_modules/.bin/tsc && npm run build:site",
+    "build": "node_modules/.bin/tsc && npm run build:site && npm run copy:site",
     "build:site": "cd site-generator && npm run build",
+    "copy:site": "rm -rf src/site && mkdir -p src/site && cp -r site-generator/dist/* src/site/",
     "dev": "node_modules/.bin/tsc --watch",
     "test": "jest",
     "lint": "eslint src/**/*.ts",
